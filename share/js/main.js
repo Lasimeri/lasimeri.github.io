@@ -2,16 +2,16 @@
 
 import {
   generateKey, exportKey, importKey, deriveRoomId
-} from './crypto.js';
+} from './crypto.js?v=2';
 import {
   createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
   setLogger
-} from './signaling.js';
+} from './signaling.js?v=2';
 import {
   createPeerConnection, createOffer, createAnswer,
   acceptAnswer, onDataChannel, waitForOpen
-} from './rtc.js';
-import { sendFile, receiveFile } from './transfer.js';
+} from './rtc.js?v=2';
+import { sendFile, receiveFile } from './transfer.js?v=2';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);

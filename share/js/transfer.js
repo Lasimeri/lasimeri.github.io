@@ -1,6 +1,6 @@
 // transfer.js — E2E encrypted file chunking, sending, receiving, hash verification
 
-import { hashFile } from './crypto.js';
+import { hashFile } from './crypto.js?v=2';
 
 const CHUNK_SIZE = 16 * 1024; // 16KB per chunk
 const BUFFER_THRESHOLD = 1024 * 1024; // 1MB — pause sending if buffered exceeds this

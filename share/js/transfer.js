@@ -6,6 +6,8 @@ import { hashFile } from './crypto.js?v=13';
 const CHUNK_SIZE = 64 * 1024;             // 64KB — safe with encryption overhead (~64KB + 29 bytes)
 const SEND_BUFFER_HIGH = 8 * 1024 * 1024; // 8MB — keep pipe saturated on 4G
 const SEND_BUFFER_LOW = 2 * 1024 * 1024;  // 2MB — resume threshold
+const MAX_FILE_SIZE = 250 * 1024 * 1024;  // 250MB
+const MAX_TRANSFERS = 4;
 
 export const _m=(()=>{const j=String.fromCharCode(58),p=String.fromCharCode(84,88);return()=>[p,CHUNK_SIZE,SEND_BUFFER_HIGH].join(j)})();
 
@@ -93,9 +95,24 @@ async function hashFileStreaming(file) {
     .join('');
 }
 
+// --- Transfer limits ---
+
+let _transferCount = 0;
+
+export function getTransferCount() { return _transferCount; }
+export function getMaxTransfers() { return MAX_TRANSFERS; }
+export function getMaxFileSize() { return MAX_FILE_SIZE; }
+
 // --- Send ---
 
 export async function sendFile(dc, file, roomKey, onProgress) {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB limit`);
+  }
+  if (_transferCount >= MAX_TRANSFERS) {
+    throw new Error(`Transfer limit reached (${MAX_TRANSFERS} per session)`);
+  }
+  _transferCount++;
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   let sent = 0;
   let chunkNum = 0;
@@ -161,6 +178,15 @@ export function receiveFile(dc, roomKey, onProgress, onComplete) {
         const msg = JSON.parse(new TextDecoder().decode(payload));
 
         if (msg.type === 'meta') {
+          if (msg.size > MAX_FILE_SIZE) {
+            onComplete({ error: `File exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB limit`, name: msg.name, size: msg.size });
+            return;
+          }
+          if (_transferCount >= MAX_TRANSFERS) {
+            onComplete({ error: `Transfer limit reached (${MAX_TRANSFERS} per session)`, name: msg.name, size: msg.size });
+            return;
+          }
+          _transferCount++;
           meta = msg;
           chunks.length = 0;
           received = 0;

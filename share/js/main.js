@@ -12,7 +12,7 @@ import {
   acceptAnswer, onDataChannel, waitForOpen, getConnectionType,
   setRtcLogger
 } from './rtc.js?v=13';
-import { sendFile, receiveFile } from './transfer.js?v=13';
+import { sendFile, receiveFile, getTransferCount, getMaxTransfers, getMaxFileSize } from './transfer.js?v=13';
 import { connectRelay, setRelayLogger } from './relay.js?v=13';
 
 // --- DOM ---
@@ -182,6 +182,11 @@ function setupReceiver(channel, key) {
     (received, total, speed) => showProgress(received, total, speed),
     (result) => {
       progressEl.classList.add('hidden');
+      if (result.error) {
+        setStatus(`Rejected: ${result.error}`);
+        log(`REJECTED: ${result.name} (${formatBytes(result.size)}) — ${result.error}`);
+        return;
+      }
       const el = document.createElement('div');
       el.className = 'received-file';
       const url = URL.createObjectURL(result.blob);
@@ -195,7 +200,7 @@ function setupReceiver(channel, key) {
       `;
       receivedEl.appendChild(el);
       receivedEl.classList.remove('hidden');
-      log(`Received: ${result.name} (${result.verified ? 'verified' : 'HASH MISMATCH'}${speedStr})`);
+      log(`Received: ${result.name} [${getTransferCount()}/${getMaxTransfers()}] (${result.verified ? 'verified' : 'HASH MISMATCH'}${speedStr})`);
     }
   );
 }
@@ -370,21 +375,33 @@ sendBtn.addEventListener('click', async () => {
   const file = fileInput.files[0];
   if (!file) return;
 
+  if (file.size > getMaxFileSize()) {
+    setStatus(`File too large — ${formatBytes(getMaxFileSize())} limit`);
+    log(`BLOCKED: ${file.name} (${formatBytes(file.size)}) exceeds ${formatBytes(getMaxFileSize())} limit`);
+    return;
+  }
+  if (getTransferCount() >= getMaxTransfers()) {
+    setStatus(`Transfer limit reached (${getMaxTransfers()} per session)`);
+    log(`BLOCKED: transfer limit (${getMaxTransfers()}) reached`);
+    sendBtn.disabled = true;
+    return;
+  }
+
   sendBtn.disabled = true;
   setStatus(`Sending ${file.name}...`);
-  log(`Sending: ${file.name} (${formatBytes(file.size)}) — E2E encrypting chunks`);
+  log(`Sending: ${file.name} (${formatBytes(file.size)}) — E2E encrypting chunks [${getTransferCount() + 1}/${getMaxTransfers()}]`);
 
   try {
     await sendFile(dc, file, roomKey, (sent, total, chunks, totalChunks, speed) => showProgress(sent, total, speed));
     progressEl.classList.add('hidden');
-    setStatus(`Sent ${file.name}`);
+    setStatus(`Sent ${file.name} [${getTransferCount()}/${getMaxTransfers()} transfers used]`);
     log(`Sent: ${file.name} complete`);
   } catch (err) {
     setStatus(`Send error: ${err.message}`);
     log(`SEND ERROR: ${err.message}`);
   }
 
-  sendBtn.disabled = false;
+  sendBtn.disabled = getTransferCount() >= getMaxTransfers();
 });
 
 // --- Copy Link ---

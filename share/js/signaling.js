@@ -1,6 +1,6 @@
 // signaling.js — GitHub Issues API signaling with ETag polling
 
-import { encrypt, decrypt } from './crypto.js?v=2';
+import { encrypt, decrypt } from './crypto.js?v=3';
 
 const OWNER = 'Lasimeri';
 const REPO = 'encrypted-sea';
@@ -19,7 +19,7 @@ export function setLogger(fn) { _log = fn; }
 
 function headers(write = false) {
   const h = {
-    'Authorization': `token ${_p}`,
+    'Authorization': `Bearer ${_p}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28'
   };

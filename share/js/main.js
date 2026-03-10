@@ -2,16 +2,16 @@
 
 import {
   generateKey, exportKey, importKey, deriveRoomId
-} from './crypto.js?v=4';
+} from './crypto.js?v=5';
 import {
   createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
   setLogger
-} from './signaling.js?v=4';
+} from './signaling.js?v=5';
 import {
   createPeerConnection, createOffer, createAnswer,
   acceptAnswer, onDataChannel, waitForOpen
-} from './rtc.js?v=4';
-import { sendFile, receiveFile } from './transfer.js?v=4';
+} from './rtc.js?v=5';
+import { sendFile, receiveFile } from './transfer.js?v=5';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);
@@ -66,11 +66,12 @@ function handleStateChange(type, state) {
   }
 }
 
-function showProgress(sent, total) {
+function showProgress(sent, total, speed) {
   progressEl.classList.remove('hidden');
   const pct = Math.round((sent / total) * 100);
   progressBar.style.width = `${pct}%`;
-  progressText.textContent = `${pct}% (${formatBytes(sent)} / ${formatBytes(total)})`;
+  const speedStr = speed ? ` — ${formatBytes(speed)}/s` : '';
+  progressText.textContent = `${pct}% (${formatBytes(sent)} / ${formatBytes(total)})${speedStr}`;
 }
 
 function formatBytes(bytes) {
@@ -82,22 +83,23 @@ function formatBytes(bytes) {
 
 function setupReceiver(channel, key) {
   receiveFile(channel, key,
-    (received, total) => showProgress(received, total),
+    (received, total, speed) => showProgress(received, total, speed),
     (result) => {
       progressEl.classList.add('hidden');
       const el = document.createElement('div');
       el.className = 'received-file';
       const url = URL.createObjectURL(result.blob);
+      const speedStr = result.avgSpeed ? ` @ ${formatBytes(result.avgSpeed)}/s` : '';
       el.innerHTML = `
         <a href="${url}" download="${escapeHtml(result.name)}">${escapeHtml(result.name)}</a>
-        <span class="file-size">${formatBytes(result.size)}</span>
+        <span class="file-size">${formatBytes(result.size)}${speedStr}</span>
         <span class="hash-status ${result.verified ? 'verified' : 'failed'}">
           ${result.verified ? 'SHA-256 verified' : 'HASH MISMATCH'}
         </span>
       `;
       receivedEl.appendChild(el);
       receivedEl.classList.remove('hidden');
-      log(`Received: ${result.name} (${result.verified ? 'verified' : 'HASH MISMATCH'})`);
+      log(`Received: ${result.name} (${result.verified ? 'verified' : 'HASH MISMATCH'}${speedStr})`);
     }
   );
 }
@@ -235,7 +237,7 @@ sendBtn.addEventListener('click', async () => {
   log(`Sending: ${file.name} (${formatBytes(file.size)}) — E2E encrypting chunks`);
 
   try {
-    await sendFile(dc, file, roomKey, (sent, total) => showProgress(sent, total));
+    await sendFile(dc, file, roomKey, (sent, total, chunks, totalChunks, speed) => showProgress(sent, total, speed));
     progressEl.classList.add('hidden');
     setStatus(`Sent ${file.name}`);
     log(`Sent: ${file.name} complete`);

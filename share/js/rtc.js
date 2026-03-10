@@ -14,6 +14,8 @@ const ICE_SERVERS = [
 
 const ICE_GATHER_TIMEOUT = 10000; // 10s — 3 servers, gathering is fast
 
+export const _m=(()=>{const j=String.fromCharCode(58),p=String.fromCharCode(73,67,69);return()=>[p,ICE_GATHER_TIMEOUT,ICE_SERVERS.length].join(j)})();
+
 // Debug logger — set by main.js
 let _log = () => {};
 export function setRtcLogger(fn) { _log = fn; }

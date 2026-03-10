@@ -1,35 +1,33 @@
 // signaling.js — GitHub Issues API signaling with ETag polling
 
-import { encrypt, decrypt } from './crypto.js?v=12';
-import { unlock } from './secrets.js?v=12';
+import { encrypt, decrypt } from './crypto.js?v=13';
+import { unlock, unseal, dropDerivedKey } from './secrets.js?v=13';
 
-// AES-256-GCM encrypted — decrypted only in RAM at runtime
-const _ENC_OWNER = 'ac4f46e60fb97322e35899fb4919d348ce1f997ae2d85c6a02533e88b5fd2951fcb36597';
-const _ENC_REPO = 'e12cfcf665925f2bb51a1ba370c6a36a5ae83083cf04f1391f12f2f12cca784b907555138b72776927';
-const _ENC_PAT = 'f94019dd5e3dbe2225027060079bc66d780805d9e3e60ad53aab7974db8604f0c0d6e10638b6f85cabe1815cde44291ed833f953e83b0acce9787a74eb285139b4e2fce3';
+const _e=[
+['kt3Wob4k','4IBlLVWt','SmX9Rf1d','gNuH0Ahg','d2RCNMn5','0H5ej5C5'],
+['l3fHwkQr','nXodkY2S','PfFQigBV','58VEP7Eg','keIYC3dW','AusuFVqm','BoHUPKg='],
+['SgCD1vq3','YcLm5Kyb','8ED0dtDT','vTzMPjLR','zAmSG3bt','VAgDO/5b','JqGaYIMd','L8W05VHQ','+oiI/6bu','us7GwbZD','b/qhtgYq','iJ4=']
+];
+let _s0=null,_s1=null,_s2=null;
 
-// Decrypted at init — only exists in RAM
-let _api = null;
-let _pat = null;
-
-async function init() {
-  if (_api) return;
-  const [owner, repo, pat] = await Promise.all([
-    unlock(_ENC_OWNER),
-    unlock(_ENC_REPO),
-    unlock(_ENC_PAT)
-  ]);
-  _api = `https://api.github.com/repos/${owner}/${repo}`;
-  _pat = pat;
-}
+async function init(){
+if(_s0)return;
+[_s0,_s1,_s2]=await Promise.all(_e.map(a=>unlock(a.join(''))));
+dropDerivedKey()}
 
 // Debug logger — set by main.js
 let _log = () => {};
 export function setLogger(fn) { _log = fn; }
 
-function headers(write = false) {
+async function apiUrl(path) {
+  const [o, r] = await Promise.all([unseal(_s0), unseal(_s1)]);
+  return `https://api.github.com/repos/${o}/${r}${path}`;
+}
+
+async function headers(write = false) {
+  const t = await unseal(_s2);
   const h = {
-    'Authorization': `Bearer ${_pat}`,
+    'Authorization': `Bearer ${t}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28'
   };
@@ -41,9 +39,9 @@ export async function createRoom(roomId, sdpOffer, roomKey) {
   await init();
   const encryptedBody = await encrypt(sdpOffer, roomKey);
   _log(`Creating issue [room:${roomId}]...`);
-  const res = await fetch(`${_api}/issues`, {
+  const res = await fetch(await apiUrl('/issues'), {
     method: 'POST',
-    headers: headers(true),
+    headers: await headers(true),
     body: JSON.stringify({
       title: `[room:${roomId}]`,
       body: encryptedBody
@@ -62,9 +60,9 @@ export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
   await init();
   const encryptedBody = await encrypt(sdpAnswer, roomKey);
   _log(`Posting answer to issue #${issueNumber}...`);
-  const res = await fetch(`${_api}/issues/${issueNumber}/comments`, {
+  const res = await fetch(await apiUrl(`/issues/${issueNumber}/comments`), {
     method: 'POST',
-    headers: headers(true),
+    headers: await headers(true),
     body: JSON.stringify({ body: encryptedBody })
   });
   if (!res.ok) {
@@ -81,12 +79,12 @@ export async function pollForAnswer(issueNumber, roomKey, signal) {
   let polls = 0;
   _log(`Polling for answer on issue #${issueNumber}...`);
   while (!signal?.aborted) {
-    const h = headers();
+    const h = await headers();
     if (etag) h['If-None-Match'] = etag;
 
     try {
       const res = await fetch(
-        `${_api}/issues/${issueNumber}/comments?per_page=1`,
+        await apiUrl(`/issues/${issueNumber}/comments?per_page=1`),
         { headers: h }
       );
 
@@ -126,12 +124,12 @@ export async function pollForRoom(roomId, roomKey, signal) {
   _log(`Polling for room: ${target}`);
 
   while (!signal?.aborted) {
-    const h = headers();
+    const h = await headers();
     if (etag) h['If-None-Match'] = etag;
 
     try {
       const res = await fetch(
-        `${_api}/issues?state=open&per_page=50&sort=created&direction=desc`,
+        await apiUrl('/issues?state=open&per_page=50&sort=created&direction=desc'),
         { headers: h }
       );
 
@@ -171,9 +169,9 @@ export async function pollForRoom(roomId, roomKey, signal) {
 
 export async function closeRoom(issueNumber) {
   await init();
-  await fetch(`${_api}/issues/${issueNumber}`, {
+  await fetch(await apiUrl(`/issues/${issueNumber}`), {
     method: 'PATCH',
-    headers: headers(true),
+    headers: await headers(true),
     body: JSON.stringify({ state: 'closed' })
   });
 }

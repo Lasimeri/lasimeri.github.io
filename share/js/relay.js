@@ -1,19 +1,22 @@
 // relay.js — WebSocket relay fallback when WebRTC fails
 // Wraps WebSocket to mimic DataChannel API so transfer.js works unchanged
 
-import { unlock } from './secrets.js?v=12';
+import { unlock, unseal } from './secrets.js?v=13';
 
-// AES-256-GCM encrypted — decrypted only in RAM at runtime
-const _ENC_SUB = 'e6d5214a35b0bc9c605606c812a07048e5ddae7572f006d5399a4fa7d55a8c89da19367ccf98bb5198303ca9be84a87dabd2';
-const _ENC_ACCT = '01b1ba774a8cfe821f770fdb19a7ad35b7ae2b289fd6d2e8c77d41621376ed92f77688ac';
+const _e=[
+['mwDfDra/','LXpU0Qes','8PSl/+b3','qq8LSuDq','tH1wt8Di','dJvrrQd1','RrDxzUJM','LBi4Jyj+','95w='],
+['1dIHxV36','2MHm7ZWM','KK5LbeVv','ZfxOPvoJ','e0I3oj3+','WACqrNH8']
+];
+let _s0=null,_s1=null;
 
-let _relayUrl = null;
-async function getRelayUrl() {
-  if (_relayUrl) return _relayUrl;
-  const [sub, acct] = await Promise.all([unlock(_ENC_SUB), unlock(_ENC_ACCT)]);
-  _relayUrl = `wss://${sub}.${acct}.deno.net`;
-  return _relayUrl;
-}
+async function _i(){
+if(_s0)return;
+[_s0,_s1]=await Promise.all(_e.map(a=>unlock(a.join(''))))}
+
+async function getRelayUrl(){
+await _i();
+const[a,b]=await Promise.all([unseal(_s0),unseal(_s1)]);
+return`wss://${a}.${b}.deno.net`}
 
 let _log = () => {};
 export function setRelayLogger(fn) { _log = fn; }

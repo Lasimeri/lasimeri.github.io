@@ -2,18 +2,18 @@
 
 import {
   generateKey, exportKey, importKey, deriveRoomId
-} from './crypto.js?v=12';
+} from './crypto.js?v=13';
 import {
   createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
   setLogger
-} from './signaling.js?v=12';
+} from './signaling.js?v=13';
 import {
   createPeerConnection, createOffer, createAnswer,
   acceptAnswer, onDataChannel, waitForOpen, getConnectionType,
   setRtcLogger
-} from './rtc.js?v=12';
-import { sendFile, receiveFile } from './transfer.js?v=12';
-import { connectRelay, setRelayLogger } from './relay.js?v=12';
+} from './rtc.js?v=13';
+import { sendFile, receiveFile } from './transfer.js?v=13';
+import { connectRelay, setRelayLogger } from './relay.js?v=13';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);

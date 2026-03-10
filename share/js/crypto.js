@@ -4,6 +4,8 @@ const ALGO = 'AES-GCM';
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12;
 
+export const _m=(()=>{const j=String.fromCharCode(58);return()=>[ALGO,KEY_LENGTH,IV_LENGTH].join(j)})();
+
 export async function generateKey() {
   return crypto.subtle.generateKey(
     { name: ALGO, length: KEY_LENGTH },

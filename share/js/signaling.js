@@ -8,11 +8,10 @@ const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
 
 // Obfuscated PAT — split and reversed to avoid plain-text scraping
 const _t = [
-  '17dVu', 'VJRCEoY', 'CCQICDX', 'QHzNuUq',
-  '0OrSFTG', 'yn0mL5f', 'gXj6PDl', 'u2jK98U',
-  'G_5EgE4', 'ORVSjH1', '4A0YaUz', '11BTZT3'
+  'z', 'iD22cE1', 'p8vBHpg', 'H46lkc6',
+  'e9BPRxu', 'j67xIxE'
 ].reverse().join('');
-const _p = `github_pat_${_t}`;
+const _p = `ghp_${_t}`;
 
 // Debug logger — set by main.js
 let _log = () => {};

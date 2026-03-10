@@ -4,31 +4,15 @@
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  // Free TURN relay (OpenRelay by Metered.ca)
-  // UDP, TCP, and TLS variants for maximum NAT/firewall compatibility
+  // Free TURN relay (freestun.net) — 50 Kbit/s cap, last-resort fallback
   {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:80?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
+    urls: 'turn:freestun.net:3478',
+    username: 'free',
+    credential: 'free'
   }
 ];
 
-const ICE_GATHER_TIMEOUT = 20000; // 20s — relay candidates need more time
+const ICE_GATHER_TIMEOUT = 10000; // 10s — 3 servers, gathering is fast
 
 // Debug logger — set by main.js
 let _log = () => {};

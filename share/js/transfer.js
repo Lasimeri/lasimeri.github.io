@@ -1,7 +1,7 @@
 // transfer.js — High-throughput E2E encrypted file transfer
 // Streaming reads, 64KB chunks, 4G-optimized, sequential decrypt
 
-import { hashFile } from './crypto.js?v=9';
+import { hashFile } from './crypto.js?v=10';
 
 const CHUNK_SIZE = 64 * 1024;             // 64KB — safe with encryption overhead (~64KB + 29 bytes)
 const SEND_BUFFER_HIGH = 8 * 1024 * 1024; // 8MB — keep pipe saturated on 4G

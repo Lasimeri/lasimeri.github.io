@@ -29,26 +29,15 @@ export async function createRoom(roomId, sdpOffer, roomKey) {
     headers: headers(),
     body: JSON.stringify({
       title: `[room:${roomId}]`,
-      body: encryptedBody,
-      labels: ['signal']
+      body: encryptedBody
     })
   });
-  if (!res.ok) throw new Error(`Failed to create issue: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`Failed to create issue: ${res.status} ${err}`);
+  }
   const data = await res.json();
   return data.number;
-}
-
-export async function findRoom(roomId, roomKey) {
-  const res = await fetch(
-    `${API}/issues?labels=signal&state=open&per_page=30`,
-    { headers: headers() }
-  );
-  if (!res.ok) throw new Error(`Failed to list issues: ${res.status}`);
-  const issues = await res.json();
-  const issue = issues.find(i => i.title === `[room:${roomId}]`);
-  if (!issue) return null;
-  const sdpOffer = await decrypt(issue.body, roomKey);
-  return { issueNumber: issue.number, sdpOffer };
 }
 
 export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
@@ -58,18 +47,21 @@ export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
     headers: headers(),
     body: JSON.stringify({ body: encryptedBody })
   });
-  if (!res.ok) throw new Error(`Failed to post answer: ${res.status}`);
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`Failed to post answer: ${res.status} ${err}`);
+  }
 }
 
 export async function pollForAnswer(issueNumber, roomKey, signal) {
   let etag = null;
   while (!signal?.aborted) {
-    const opts = { headers: headers() };
-    if (etag) opts.headers['If-None-Match'] = etag;
+    const h = headers();
+    if (etag) h['If-None-Match'] = etag;
 
     const res = await fetch(
       `${API}/issues/${issueNumber}/comments?per_page=1`,
-      opts
+      { headers: h }
     );
 
     etag = res.headers.get('ETag');
@@ -79,7 +71,7 @@ export async function pollForAnswer(issueNumber, roomKey, signal) {
       continue;
     }
 
-    if (!res.ok) throw new Error(`Poll failed: ${res.status}`);
+    if (!res.ok) throw new Error(`Poll comments failed: ${res.status}`);
 
     const comments = await res.json();
     if (comments.length > 0) {
@@ -94,13 +86,15 @@ export async function pollForAnswer(issueNumber, roomKey, signal) {
 
 export async function pollForRoom(roomId, roomKey, signal) {
   let etag = null;
+  const target = `[room:${roomId}]`;
+
   while (!signal?.aborted) {
-    const opts = { headers: headers() };
-    if (etag) opts.headers['If-None-Match'] = etag;
+    const h = headers();
+    if (etag) h['If-None-Match'] = etag;
 
     const res = await fetch(
-      `${API}/issues?labels=signal&state=open&per_page=30`,
-      opts
+      `${API}/issues?state=open&per_page=50&sort=created&direction=desc`,
+      { headers: h }
     );
 
     etag = res.headers.get('ETag');
@@ -110,10 +104,10 @@ export async function pollForRoom(roomId, roomKey, signal) {
       continue;
     }
 
-    if (!res.ok) throw new Error(`Poll failed: ${res.status}`);
+    if (!res.ok) throw new Error(`Poll issues failed: ${res.status}`);
 
     const issues = await res.json();
-    const issue = issues.find(i => i.title === `[room:${roomId}]`);
+    const issue = issues.find(i => i.title === target);
     if (issue) {
       const sdpOffer = await decrypt(issue.body, roomKey);
       return { issueNumber: issue.number, sdpOffer };

@@ -19,7 +19,7 @@ export function setLogger(fn) { _log = fn; }
 
 function headers(write = false) {
   const h = {
-    'Authorization': `Bearer ${_p}`,
+    'Authorization': `token ${_p}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28'
   };

@@ -1,6 +1,6 @@
 // transfer.js — E2E encrypted file chunking, sending, receiving, hash verification
 
-import { hashFile } from './crypto.js?v=3';
+import { hashFile } from './crypto.js?v=4';
 
 const CHUNK_SIZE = 16 * 1024; // 16KB per chunk
 const BUFFER_THRESHOLD = 1024 * 1024; // 1MB — pause sending if buffered exceeds this
@@ -96,45 +96,49 @@ export function receiveFile(dc, roomKey, onProgress, onComplete) {
   const chunks = [];
   let received = 0;
 
+  // Sequential processing queue — prevents async decryption from reordering chunks
+  let queue = Promise.resolve();
+
   dc.binaryType = 'arraybuffer';
 
-  dc.onmessage = async (e) => {
-    // Decrypt
-    const decrypted = await decryptBinary(e.data, roomKey);
-    const bytes = new Uint8Array(decrypted);
-    const type = bytes[0];
-    const payload = bytes.slice(1);
+  dc.onmessage = (e) => {
+    queue = queue.then(async () => {
+      const decrypted = await decryptBinary(e.data, roomKey);
+      const bytes = new Uint8Array(decrypted);
+      const type = bytes[0];
+      const payload = bytes.slice(1);
 
-    if (type === MSG_CONTROL) {
-      const msg = JSON.parse(new TextDecoder().decode(payload));
+      if (type === MSG_CONTROL) {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
 
-      if (msg.type === 'meta') {
-        meta = msg;
-        chunks.length = 0;
-        received = 0;
-        return;
+        if (msg.type === 'meta') {
+          meta = msg;
+          chunks.length = 0;
+          received = 0;
+          return;
+        }
+
+        if (msg.type === 'done') {
+          const blob = new Blob(chunks, { type: meta.mimeType });
+          const buffer = await blob.arrayBuffer();
+          const localHash = await hashFile(buffer);
+          onComplete({
+            blob,
+            name: meta.name,
+            size: meta.size,
+            hash: msg.hash,
+            localHash,
+            verified: localHash === msg.hash
+          });
+          return;
+        }
       }
 
-      if (msg.type === 'done') {
-        const blob = new Blob(chunks, { type: meta.mimeType });
-        const buffer = await blob.arrayBuffer();
-        const localHash = await hashFile(buffer);
-        onComplete({
-          blob,
-          name: meta.name,
-          size: meta.size,
-          hash: msg.hash,
-          localHash,
-          verified: localHash === msg.hash
-        });
-        return;
+      if (type === MSG_CHUNK) {
+        chunks.push(payload.buffer);
+        received += payload.byteLength;
+        if (onProgress && meta) onProgress(received, meta.size);
       }
-    }
-
-    if (type === MSG_CHUNK) {
-      chunks.push(payload.buffer);
-      received += payload.byteLength;
-      if (onProgress && meta) onProgress(received, meta.size);
-    }
+    });
   };
 }

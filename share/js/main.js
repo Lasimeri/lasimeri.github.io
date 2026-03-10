@@ -2,16 +2,16 @@
 
 import {
   generateKey, exportKey, importKey, deriveRoomId
-} from './crypto.js?v=7';
+} from './crypto.js?v=8';
 import {
   createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
   setLogger
-} from './signaling.js?v=7';
+} from './signaling.js?v=8';
 import {
   createPeerConnection, createOffer, createAnswer,
   acceptAnswer, onDataChannel, waitForOpen
-} from './rtc.js?v=7';
-import { sendFile, receiveFile } from './transfer.js?v=7';
+} from './rtc.js?v=8';
+import { sendFile, receiveFile } from './transfer.js?v=8';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);
@@ -52,16 +52,38 @@ function log(msg) {
 // Wire signaling debug logs to UI
 setLogger(log);
 
+let failTimeout = null;
+
 function handleStateChange(type, state) {
   log(`${type}: ${state}`);
   if (type === 'connection') {
-    connState.textContent = state;
-    connState.className = `conn-state ${state}`;
     connState.classList.remove('hidden');
-    if (state === 'failed') {
-      setStatus('Connection failed — peers may be behind incompatible NATs');
+
+    if (state === 'connected') {
+      // Cancel any pending failure message
+      if (failTimeout) { clearTimeout(failTimeout); failTimeout = null; }
+      connState.textContent = state;
+      connState.className = `conn-state ${state}`;
+    } else if (state === 'failed') {
+      // Delay — TURN fallback may still recover the connection
+      if (!failTimeout) {
+        failTimeout = setTimeout(() => {
+          if (pc?.connectionState === 'failed') {
+            connState.textContent = 'failed';
+            connState.className = 'conn-state failed';
+            setStatus('Connection failed — peers may be behind incompatible NATs');
+          }
+          failTimeout = null;
+        }, 5000);
+      }
     } else if (state === 'disconnected') {
+      connState.textContent = state;
+      connState.className = `conn-state ${state}`;
       setStatus('Peer disconnected');
+    } else {
+      // connecting, new, etc.
+      connState.textContent = state;
+      connState.className = `conn-state ${state}`;
     }
   }
 }

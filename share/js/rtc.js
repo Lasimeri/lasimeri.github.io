@@ -2,26 +2,62 @@
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' }
+  { urls: 'stun:stun1.l.google.com:19302' },
+  // Free TURN relay (OpenRelay by Metered.ca)
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:80?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
 ];
 
-export function createPeerConnection(onIceCandidate) {
+const ICE_GATHER_TIMEOUT = 15000; // 15s max for ICE gathering
+
+export function createPeerConnection(onStateChange) {
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  if (onIceCandidate) {
-    pc.onicecandidate = (e) => onIceCandidate(e.candidate);
+  if (onStateChange) {
+    pc.onconnectionstatechange = () => onStateChange('connection', pc.connectionState);
+    pc.oniceconnectionstatechange = () => onStateChange('ice', pc.iceConnectionState);
+    pc.onicegatheringstatechange = () => onStateChange('gathering', pc.iceGatheringState);
   }
   return pc;
 }
 
 export function waitForIceGathering(pc) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (pc.iceGatheringState === 'complete') {
       resolve();
       return;
     }
-    pc.onicegatheringstatechange = () => {
-      if (pc.iceGatheringState === 'complete') resolve();
+
+    const timeout = setTimeout(() => {
+      // Resolve with what we have — partial candidates are usable
+      console.warn('ICE gathering timed out, proceeding with partial candidates');
+      resolve();
+    }, ICE_GATHER_TIMEOUT);
+
+    const handler = () => {
+      if (pc.iceGatheringState === 'complete') {
+        clearTimeout(timeout);
+        resolve();
+      }
     };
+    pc.addEventListener('icegatheringstatechange', handler);
   });
 }
 
@@ -50,8 +86,14 @@ export async function acceptAnswer(pc, answerSdp) {
 }
 
 export function onDataChannel(pc) {
-  return new Promise((resolve) => {
-    pc.ondatachannel = (e) => resolve(e.channel);
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('DataChannel timed out — peer may be unreachable'));
+    }, 30000);
+    pc.ondatachannel = (e) => {
+      clearTimeout(timeout);
+      resolve(e.channel);
+    };
   });
 }
 
@@ -61,11 +103,16 @@ export function waitForOpen(dc) {
       resolve();
       return;
     }
-    dc.onopen = () => resolve();
-    dc.onerror = (e) => reject(e);
+    const timeout = setTimeout(() => {
+      reject(new Error('DataChannel open timed out'));
+    }, 30000);
+    dc.onopen = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+    dc.onerror = (e) => {
+      clearTimeout(timeout);
+      reject(new Error(`DataChannel error: ${e.error?.message || 'unknown'}`));
+    };
   });
-}
-
-export function onConnectionState(pc, callback) {
-  pc.onconnectionstatechange = () => callback(pc.connectionState);
 }

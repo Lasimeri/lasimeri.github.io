@@ -203,3 +203,15 @@ button:disabled {
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
 }
+
+.debug-log {
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.6;
+}

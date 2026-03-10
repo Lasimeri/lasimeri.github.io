@@ -8,13 +8,14 @@ import {
 } from './signaling.js';
 import {
   createPeerConnection, createOffer, createAnswer,
-  acceptAnswer, onDataChannel, waitForOpen, onConnectionState
+  acceptAnswer, onDataChannel, waitForOpen
 } from './rtc.js';
 import { sendFile, receiveFile } from './transfer.js';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);
 const statusEl = $('status');
+const debugEl = $('debug');
 const createBtn = $('create-room');
 const joinSection = $('join-section');
 const shareSection = $('share-section');
@@ -36,6 +37,28 @@ let abortController = null;
 
 function setStatus(msg) {
   statusEl.textContent = msg;
+}
+
+function log(msg) {
+  const line = document.createElement('div');
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  debugEl.appendChild(line);
+  debugEl.scrollTop = debugEl.scrollHeight;
+  debugEl.classList.remove('hidden');
+}
+
+function handleStateChange(type, state) {
+  log(`${type}: ${state}`);
+  if (type === 'connection') {
+    connState.textContent = state;
+    connState.className = `conn-state ${state}`;
+    connState.classList.remove('hidden');
+    if (state === 'failed') {
+      setStatus('Connection failed — peers may be behind incompatible NATs');
+    } else if (state === 'disconnected') {
+      setStatus('Peer disconnected');
+    }
+  }
 }
 
 function showProgress(sent, total) {
@@ -69,6 +92,7 @@ function setupReceiver(channel) {
       `;
       receivedEl.appendChild(el);
       receivedEl.classList.remove('hidden');
+      log(`Received: ${result.name} (${result.verified ? 'verified' : 'HASH MISMATCH'})`);
     }
   );
 }
@@ -79,33 +103,28 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function setupConnectionMonitor() {
-  onConnectionState(pc, (state) => {
-    connState.textContent = state;
-    connState.className = `conn-state ${state}`;
-    if (state === 'disconnected' || state === 'failed') {
-      setStatus('Peer disconnected');
-    }
-  });
-}
-
 // --- Create Room (Peer A) ---
 createBtn.addEventListener('click', async () => {
   try {
     createBtn.disabled = true;
     setStatus('Generating encryption key...');
+    log('Generating AES-256-GCM key');
 
     roomKey = await generateKey();
     const roomId = await deriveRoomId(roomKey);
     const keyStr = await exportKey(roomKey);
+    log(`Room ID: ${roomId}`);
 
     setStatus('Creating WebRTC offer...');
-    pc = createPeerConnection();
+    pc = createPeerConnection(handleStateChange);
+    log('Peer connection created with STUN + TURN servers');
     const { dataChannel, sdp } = await createOffer(pc);
     dc = dataChannel;
+    log('SDP offer created, ICE gathering complete');
 
     setStatus('Posting encrypted offer...');
     issueNumber = await createRoom(roomId, sdp, roomKey);
+    log(`Signaling issue #${issueNumber} created`);
 
     // Build share URL
     const url = `${location.origin}${location.pathname}#${keyStr}`;
@@ -121,16 +140,19 @@ createBtn.addEventListener('click', async () => {
     const answerSdp = await pollForAnswer(
       issueNumber, roomKey, abortController.signal
     );
+    log('Received encrypted answer from peer');
 
     setStatus('Connecting...');
     await acceptAnswer(pc, answerSdp);
+    log('Remote description set, establishing P2P connection...');
 
     await waitForOpen(dc);
+    log('DataChannel open');
     setupReceiver(dc);
-    setupConnectionMonitor();
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
+    log('Signaling issue closed');
 
     setStatus('Connected — ready to transfer files');
     fileInput.disabled = false;
@@ -138,6 +160,7 @@ createBtn.addEventListener('click', async () => {
 
   } catch (err) {
     setStatus(`Error: ${err.message}`);
+    log(`ERROR: ${err.message}`);
     createBtn.disabled = false;
   }
 });
@@ -152,32 +175,40 @@ async function joinRoom() {
 
   joinSection.classList.add('hidden');
   setStatus('Decrypting room key...');
+  log('Extracting room key from URL fragment');
 
   try {
     roomKey = await importKey(fragment);
     const roomId = await deriveRoomId(roomKey);
+    log(`Room ID: ${roomId}`);
 
     setStatus('Searching for room...');
     abortController = new AbortController();
     const found = await pollForRoom(roomId, roomKey, abortController.signal);
     issueNumber = found.issueNumber;
+    log(`Found signaling issue #${issueNumber}, decrypted SDP offer`);
 
     setStatus('Creating WebRTC answer...');
-    pc = createPeerConnection();
+    pc = createPeerConnection(handleStateChange);
+    log('Peer connection created with STUN + TURN servers');
     const dcPromise = onDataChannel(pc);
     const answerSdp = await createAnswer(pc, found.sdpOffer);
+    log('SDP answer created, ICE gathering complete');
 
     setStatus('Posting encrypted answer...');
     await postAnswer(issueNumber, answerSdp, roomKey);
+    log('Answer posted to signaling issue');
 
     setStatus('Connecting...');
     dc = await dcPromise;
+    log('DataChannel received');
     await waitForOpen(dc);
+    log('DataChannel open');
     setupReceiver(dc);
-    setupConnectionMonitor();
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
+    log('Signaling issue closed');
 
     setStatus('Connected — ready to transfer files');
     fileInput.disabled = false;
@@ -185,6 +216,7 @@ async function joinRoom() {
 
   } catch (err) {
     setStatus(`Error: ${err.message}`);
+    log(`ERROR: ${err.message}`);
   }
 }
 
@@ -195,13 +227,16 @@ sendBtn.addEventListener('click', async () => {
 
   sendBtn.disabled = true;
   setStatus(`Sending ${file.name}...`);
+  log(`Sending: ${file.name} (${formatBytes(file.size)})`);
 
   try {
     await sendFile(dc, file, (sent, total) => showProgress(sent, total));
     progressEl.classList.add('hidden');
-    setStatus(`Sent ${file.name} — SHA-256 verified`);
+    setStatus(`Sent ${file.name}`);
+    log(`Sent: ${file.name} complete`);
   } catch (err) {
     setStatus(`Send error: ${err.message}`);
+    log(`SEND ERROR: ${err.message}`);
   }
 
   sendBtn.disabled = false;

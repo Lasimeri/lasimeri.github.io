@@ -14,6 +14,10 @@ const _t = [
 ].reverse().join('');
 const _p = `github_pat_${_t}`;
 
+// Debug logger — set by main.js
+let _log = () => {};
+export function setLogger(fn) { _log = fn; }
+
 function headers() {
   return {
     'Authorization': `Bearer ${_p}`,
@@ -24,6 +28,7 @@ function headers() {
 
 export async function createRoom(roomId, sdpOffer, roomKey) {
   const encryptedBody = await encrypt(sdpOffer, roomKey);
+  _log(`Creating issue [room:${roomId}]...`);
   const res = await fetch(`${API}/issues`, {
     method: 'POST',
     headers: headers(),
@@ -37,11 +42,13 @@ export async function createRoom(roomId, sdpOffer, roomKey) {
     throw new Error(`Failed to create issue: ${res.status} ${err}`);
   }
   const data = await res.json();
+  _log(`Issue #${data.number} created`);
   return data.number;
 }
 
 export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
   const encryptedBody = await encrypt(sdpAnswer, roomKey);
+  _log(`Posting answer to issue #${issueNumber}...`);
   const res = await fetch(`${API}/issues/${issueNumber}/comments`, {
     method: 'POST',
     headers: headers(),
@@ -51,32 +58,44 @@ export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
     const err = await res.text().catch(() => '');
     throw new Error(`Failed to post answer: ${res.status} ${err}`);
   }
+  _log('Answer posted successfully');
 }
 
 export async function pollForAnswer(issueNumber, roomKey, signal) {
   let etag = null;
+  let polls = 0;
+  _log(`Polling for answer on issue #${issueNumber}...`);
   while (!signal?.aborted) {
     const h = headers();
     if (etag) h['If-None-Match'] = etag;
 
-    const res = await fetch(
-      `${API}/issues/${issueNumber}/comments?per_page=1`,
-      { headers: h }
-    );
+    try {
+      const res = await fetch(
+        `${API}/issues/${issueNumber}/comments?per_page=1`,
+        { headers: h }
+      );
 
-    etag = res.headers.get('ETag');
+      polls++;
+      etag = res.headers.get('ETag');
 
-    if (res.status === 304) {
-      await delay(2000);
-      continue;
-    }
+      if (res.status === 304) {
+        _log(`Poll #${polls}: 304 (no change)`);
+        await delay(2000);
+        continue;
+      }
 
-    if (!res.ok) throw new Error(`Poll comments failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Poll comments failed: ${res.status}`);
 
-    const comments = await res.json();
-    if (comments.length > 0) {
-      const sdpAnswer = await decrypt(comments[0].body, roomKey);
-      return sdpAnswer;
+      const comments = await res.json();
+      _log(`Poll #${polls}: ${res.status}, ${comments.length} comments`);
+      if (comments.length > 0) {
+        _log('Decrypting answer...');
+        const sdpAnswer = await decrypt(comments[0].body, roomKey);
+        return sdpAnswer;
+      }
+    } catch (err) {
+      _log(`Poll #${polls} error: ${err.message}`);
+      throw err;
     }
 
     await delay(2000);
@@ -86,31 +105,47 @@ export async function pollForAnswer(issueNumber, roomKey, signal) {
 
 export async function pollForRoom(roomId, roomKey, signal) {
   let etag = null;
+  let polls = 0;
   const target = `[room:${roomId}]`;
+  _log(`Polling for room: ${target}`);
 
   while (!signal?.aborted) {
     const h = headers();
     if (etag) h['If-None-Match'] = etag;
 
-    const res = await fetch(
-      `${API}/issues?state=open&per_page=50&sort=created&direction=desc`,
-      { headers: h }
-    );
+    try {
+      const res = await fetch(
+        `${API}/issues?state=open&per_page=50&sort=created&direction=desc`,
+        { headers: h }
+      );
 
-    etag = res.headers.get('ETag');
+      polls++;
+      etag = res.headers.get('ETag');
 
-    if (res.status === 304) {
-      await delay(2000);
-      continue;
-    }
+      if (res.status === 304) {
+        _log(`Poll #${polls}: 304 (no change)`);
+        await delay(2000);
+        continue;
+      }
 
-    if (!res.ok) throw new Error(`Poll issues failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Poll issues failed: ${res.status}`);
 
-    const issues = await res.json();
-    const issue = issues.find(i => i.title === target);
-    if (issue) {
-      const sdpOffer = await decrypt(issue.body, roomKey);
-      return { issueNumber: issue.number, sdpOffer };
+      const issues = await res.json();
+      const titles = issues.map(i => i.title);
+      _log(`Poll #${polls}: ${res.status}, ${issues.length} issues found: ${titles.join(', ')}`);
+
+      const issue = issues.find(i => i.title === target);
+      if (issue) {
+        _log(`Matched issue #${issue.number}, decrypting offer...`);
+        const sdpOffer = await decrypt(issue.body, roomKey);
+        _log('Offer decrypted successfully');
+        return { issueNumber: issue.number, sdpOffer };
+      } else {
+        _log(`No match for ${target}`);
+      }
+    } catch (err) {
+      _log(`Poll #${polls} error: ${err.message}`);
+      throw err;
     }
 
     await delay(2000);

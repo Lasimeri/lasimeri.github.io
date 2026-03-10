@@ -4,7 +4,8 @@ import {
   generateKey, exportKey, importKey, deriveRoomId
 } from './crypto.js';
 import {
-  createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom
+  createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
+  setLogger
 } from './signaling.js';
 import {
   createPeerConnection, createOffer, createAnswer,
@@ -40,12 +41,16 @@ function setStatus(msg) {
 }
 
 function log(msg) {
+  console.log(`[sea] ${msg}`);
   const line = document.createElement('div');
   line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
   debugEl.appendChild(line);
   debugEl.scrollTop = debugEl.scrollHeight;
   debugEl.classList.remove('hidden');
 }
+
+// Wire signaling debug logs to UI
+setLogger(log);
 
 function handleStateChange(type, state) {
   log(`${type}: ${state}`);

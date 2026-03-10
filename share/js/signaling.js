@@ -1,12 +1,13 @@
 // signaling.js — GitHub Issues API signaling with ETag polling
 
-import { encrypt, decrypt } from './crypto.js?v=5';
+import { encrypt, decrypt } from './crypto.js?v=6';
 
-const OWNER = 'Lasimeri';
-const REPO = 'encrypted-sea';
-const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+// Obfuscated identifiers — not stored in plaintext
+const _o = atob('TGFzaW1lcmk=');
+const _r = atob('ZW5jcnlwdGVkLXNlYQ==');
+const API = `https://api.github.com/repos/${_o}/${_r}`;
 
-// Obfuscated PAT — split and reversed to avoid plain-text scraping
+// Obfuscated auth
 const _t = [
   'z', 'iD22cE1', 'p8vBHpg', 'H46lkc6',
   'e9BPRxu', 'j67xIxE'

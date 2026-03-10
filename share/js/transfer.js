@@ -1,11 +1,11 @@
 // transfer.js — High-throughput E2E encrypted file transfer
-// Streaming reads, 64KB chunks, pipelined send, sequential decrypt
+// Streaming reads, 256KB chunks, 4G-optimized, sequential decrypt
 
-import { hashFile } from './crypto.js?v=4';
+import { hashFile } from './crypto.js?v=6';
 
-const CHUNK_SIZE = 64 * 1024;           // 64KB per chunk
-const SEND_BUFFER_HIGH = 4 * 1024 * 1024; // 4MB — pause sending
-const SEND_BUFFER_LOW = 1 * 1024 * 1024;  // 1MB — resume sending
+const CHUNK_SIZE = 256 * 1024;            // 256KB — max safe SCTP message size
+const SEND_BUFFER_HIGH = 8 * 1024 * 1024; // 8MB — keep pipe saturated on 4G
+const SEND_BUFFER_LOW = 2 * 1024 * 1024;  // 2MB — resume threshold
 
 const MSG_CONTROL = 0x00;
 const MSG_CHUNK = 0x01;

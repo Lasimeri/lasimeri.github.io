@@ -1,18 +1,27 @@
 // signaling.js — GitHub Issues API signaling with ETag polling
 
-import { encrypt, decrypt } from './crypto.js?v=11';
+import { encrypt, decrypt } from './crypto.js?v=12';
+import { unlock } from './secrets.js?v=12';
 
-// Obfuscated identifiers — not stored in plaintext
-const _o = atob('TGFzaW1lcmk=');
-const _r = atob('ZW5jcnlwdGVkLXNlYQ==');
-const API = `https://api.github.com/repos/${_o}/${_r}`;
+// AES-256-GCM encrypted — decrypted only in RAM at runtime
+const _ENC_OWNER = 'ac4f46e60fb97322e35899fb4919d348ce1f997ae2d85c6a02533e88b5fd2951fcb36597';
+const _ENC_REPO = 'e12cfcf665925f2bb51a1ba370c6a36a5ae83083cf04f1391f12f2f12cca784b907555138b72776927';
+const _ENC_PAT = 'f94019dd5e3dbe2225027060079bc66d780805d9e3e60ad53aab7974db8604f0c0d6e10638b6f85cabe1815cde44291ed833f953e83b0acce9787a74eb285139b4e2fce3';
 
-// Obfuscated auth
-const _t = [
-  'z', 'iD22cE1', 'p8vBHpg', 'H46lkc6',
-  'e9BPRxu', 'j67xIxE'
-].reverse().join('');
-const _p = `ghp_${_t}`;
+// Decrypted at init — only exists in RAM
+let _api = null;
+let _pat = null;
+
+async function init() {
+  if (_api) return;
+  const [owner, repo, pat] = await Promise.all([
+    unlock(_ENC_OWNER),
+    unlock(_ENC_REPO),
+    unlock(_ENC_PAT)
+  ]);
+  _api = `https://api.github.com/repos/${owner}/${repo}`;
+  _pat = pat;
+}
 
 // Debug logger — set by main.js
 let _log = () => {};
@@ -20,7 +29,7 @@ export function setLogger(fn) { _log = fn; }
 
 function headers(write = false) {
   const h = {
-    'Authorization': `Bearer ${_p}`,
+    'Authorization': `Bearer ${_pat}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28'
   };
@@ -29,9 +38,10 @@ function headers(write = false) {
 }
 
 export async function createRoom(roomId, sdpOffer, roomKey) {
+  await init();
   const encryptedBody = await encrypt(sdpOffer, roomKey);
   _log(`Creating issue [room:${roomId}]...`);
-  const res = await fetch(`${API}/issues`, {
+  const res = await fetch(`${_api}/issues`, {
     method: 'POST',
     headers: headers(true),
     body: JSON.stringify({
@@ -49,9 +59,10 @@ export async function createRoom(roomId, sdpOffer, roomKey) {
 }
 
 export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
+  await init();
   const encryptedBody = await encrypt(sdpAnswer, roomKey);
   _log(`Posting answer to issue #${issueNumber}...`);
-  const res = await fetch(`${API}/issues/${issueNumber}/comments`, {
+  const res = await fetch(`${_api}/issues/${issueNumber}/comments`, {
     method: 'POST',
     headers: headers(true),
     body: JSON.stringify({ body: encryptedBody })
@@ -65,6 +76,7 @@ export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
 }
 
 export async function pollForAnswer(issueNumber, roomKey, signal) {
+  await init();
   let etag = null;
   let polls = 0;
   _log(`Polling for answer on issue #${issueNumber}...`);
@@ -74,7 +86,7 @@ export async function pollForAnswer(issueNumber, roomKey, signal) {
 
     try {
       const res = await fetch(
-        `${API}/issues/${issueNumber}/comments?per_page=1`,
+        `${_api}/issues/${issueNumber}/comments?per_page=1`,
         { headers: h }
       );
 
@@ -107,6 +119,7 @@ export async function pollForAnswer(issueNumber, roomKey, signal) {
 }
 
 export async function pollForRoom(roomId, roomKey, signal) {
+  await init();
   let etag = null;
   let polls = 0;
   const target = `[room:${roomId}]`;
@@ -118,7 +131,7 @@ export async function pollForRoom(roomId, roomKey, signal) {
 
     try {
       const res = await fetch(
-        `${API}/issues?state=open&per_page=50&sort=created&direction=desc`,
+        `${_api}/issues?state=open&per_page=50&sort=created&direction=desc`,
         { headers: h }
       );
 
@@ -157,7 +170,8 @@ export async function pollForRoom(roomId, roomKey, signal) {
 }
 
 export async function closeRoom(issueNumber) {
-  await fetch(`${API}/issues/${issueNumber}`, {
+  await init();
+  await fetch(`${_api}/issues/${issueNumber}`, {
     method: 'PATCH',
     headers: headers(true),
     body: JSON.stringify({ state: 'closed' })

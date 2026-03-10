@@ -1,19 +1,29 @@
 // relay.js — WebSocket relay fallback when WebRTC fails
 // Wraps WebSocket to mimic DataChannel API so transfer.js works unchanged
 
-// Obfuscated relay endpoint — no plaintext account identifiers
-const _rs = atob('c2VhLXJlbGF5LThuMGJ2emVyM3ZxNQ==');
-const _ra = atob('bGFzaW1lcmk=');
-const RELAY_URL = `wss://${_rs}.${_ra}.deno.net`;
+import { unlock } from './secrets.js?v=12';
+
+// AES-256-GCM encrypted — decrypted only in RAM at runtime
+const _ENC_SUB = 'e6d5214a35b0bc9c605606c812a07048e5ddae7572f006d5399a4fa7d55a8c89da19367ccf98bb5198303ca9be84a87dabd2';
+const _ENC_ACCT = '01b1ba774a8cfe821f770fdb19a7ad35b7ae2b289fd6d2e8c77d41621376ed92f77688ac';
+
+let _relayUrl = null;
+async function getRelayUrl() {
+  if (_relayUrl) return _relayUrl;
+  const [sub, acct] = await Promise.all([unlock(_ENC_SUB), unlock(_ENC_ACCT)]);
+  _relayUrl = `wss://${sub}.${acct}.deno.net`;
+  return _relayUrl;
+}
 
 let _log = () => {};
 export function setRelayLogger(fn) { _log = fn; }
 
 // Connect to relay and return a channel that looks like a DataChannel
-export function connectRelay(roomId) {
+export async function connectRelay(roomId) {
+  const relayBase = await getRelayUrl();
   return new Promise((resolve, reject) => {
-    const url = `${RELAY_URL}/${roomId}`;
-    _log(`Connecting to relay: ${url}`);
+    const url = `${relayBase}/${roomId}`;
+    _log('Connecting to relay...');
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 

@@ -1,9 +1,11 @@
 // rtc.js — WebRTC peer connection lifecycle and DataChannel
+// Optimized for cross-NAT (symmetric NAT on mobile carriers)
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   // Free TURN relay (OpenRelay by Metered.ca)
+  // UDP, TCP, and TLS variants for maximum NAT/firewall compatibility
   {
     urls: 'turn:openrelay.metered.ca:80',
     username: 'openrelayproject',
@@ -26,28 +28,76 @@ const ICE_SERVERS = [
   }
 ];
 
-const ICE_GATHER_TIMEOUT = 15000; // 15s max for ICE gathering
+const ICE_GATHER_TIMEOUT = 20000; // 20s — relay candidates need more time
+
+// Debug logger — set by main.js
+let _log = () => {};
+export function setRtcLogger(fn) { _log = fn; }
 
 export function createPeerConnection(onStateChange) {
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const pc = new RTCPeerConnection({
+    iceServers: ICE_SERVERS,
+    iceCandidatePoolSize: 4  // pre-allocate candidates for faster gathering
+  });
+
+  // Log every ICE candidate type during gathering
+  const candidateTypes = { host: 0, srflx: 0, relay: 0 };
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      const type = e.candidate.type || 'unknown';
+      candidateTypes[type] = (candidateTypes[type] || 0) + 1;
+      _log(`ICE candidate: ${type} ${e.candidate.protocol || ''} ${e.candidate.address || '(redacted)'}`);
+    } else {
+      // Gathering done — summarize
+      _log(`ICE candidates gathered: host=${candidateTypes.host} srflx=${candidateTypes.srflx} relay=${candidateTypes.relay}`);
+      if (candidateTypes.relay === 0) {
+        _log('WARNING: No relay candidates — TURN may be unreachable. Cross-NAT will fail.');
+      }
+    }
+  };
+
   if (onStateChange) {
     pc.onconnectionstatechange = () => onStateChange('connection', pc.connectionState);
     pc.oniceconnectionstatechange = () => onStateChange('ice', pc.iceConnectionState);
     pc.onicegatheringstatechange = () => onStateChange('gathering', pc.iceGatheringState);
   }
+
   return pc;
 }
 
+// After connection: report whether direct or relayed
+export async function getConnectionType(pc) {
+  try {
+    const stats = await pc.getStats();
+    for (const [, report] of stats) {
+      if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+        // Find the local candidate
+        for (const [, r] of stats) {
+          if (r.id === report.localCandidateId) {
+            return {
+              type: r.candidateType,   // 'host', 'srflx', 'relay'
+              protocol: r.protocol,     // 'udp', 'tcp'
+              relay: r.candidateType === 'relay'
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {
+    _log(`Stats error: ${e.message}`);
+  }
+  return { type: 'unknown', protocol: 'unknown', relay: false };
+}
+
 export function waitForIceGathering(pc) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') {
       resolve();
       return;
     }
 
     const timeout = setTimeout(() => {
-      // Resolve with what we have — partial candidates are usable
-      console.warn('ICE gathering timed out, proceeding with partial candidates');
+      _log('ICE gathering timed out — proceeding with partial candidates');
       resolve();
     }, ICE_GATHER_TIMEOUT);
 

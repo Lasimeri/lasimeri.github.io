@@ -2,16 +2,17 @@
 
 import {
   generateKey, exportKey, importKey, deriveRoomId
-} from './crypto.js?v=8';
+} from './crypto.js?v=9';
 import {
   createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
   setLogger
-} from './signaling.js?v=8';
+} from './signaling.js?v=9';
 import {
   createPeerConnection, createOffer, createAnswer,
-  acceptAnswer, onDataChannel, waitForOpen
-} from './rtc.js?v=8';
-import { sendFile, receiveFile } from './transfer.js?v=8';
+  acceptAnswer, onDataChannel, waitForOpen, getConnectionType,
+  setRtcLogger
+} from './rtc.js?v=9';
+import { sendFile, receiveFile } from './transfer.js?v=9';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);
@@ -49,8 +50,9 @@ function log(msg) {
   debugEl.classList.remove('hidden');
 }
 
-// Wire signaling debug logs to UI
+// Wire debug logs to UI
 setLogger(log);
+setRtcLogger(log);
 
 let failTimeout = null;
 
@@ -179,6 +181,10 @@ createBtn.addEventListener('click', async () => {
     log('DataChannel open — E2E encrypted with room key');
     setupReceiver(dc, roomKey);
 
+    // Report connection type (direct vs relayed)
+    const connInfo = await getConnectionType(pc);
+    log(`Connection: ${connInfo.type} via ${connInfo.protocol}${connInfo.relay ? ' (TURN relay)' : ' (direct)'}`);
+
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
     log('Signaling issue closed');
@@ -234,6 +240,10 @@ async function joinRoom() {
     await waitForOpen(dc);
     log('DataChannel open — E2E encrypted with room key');
     setupReceiver(dc, roomKey);
+
+    // Report connection type (direct vs relayed)
+    const connInfo = await getConnectionType(pc);
+    log(`Connection: ${connInfo.type} via ${connInfo.protocol}${connInfo.relay ? ' (TURN relay)' : ' (direct)'}`);
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});

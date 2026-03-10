@@ -1,6 +1,6 @@
 // signaling.js — GitHub Issues API signaling with ETag polling
 
-import { encrypt, decrypt } from './crypto.js?v=8';
+import { encrypt, decrypt } from './crypto.js?v=9';
 
 // Obfuscated identifiers — not stored in plaintext
 const _o = atob('TGFzaW1lcmk=');

@@ -75,8 +75,8 @@ function formatBytes(bytes) {
   return `${(bytes / 1073741824).toFixed(1)} GB`;
 }
 
-function setupReceiver(channel) {
-  receiveFile(channel,
+function setupReceiver(channel, key) {
+  receiveFile(channel, key,
     (received, total) => showProgress(received, total),
     (result) => {
       progressEl.classList.add('hidden');
@@ -147,14 +147,14 @@ createBtn.addEventListener('click', async () => {
     log('Remote description set, establishing P2P connection...');
 
     await waitForOpen(dc);
-    log('DataChannel open');
-    setupReceiver(dc);
+    log('DataChannel open — E2E encrypted with room key');
+    setupReceiver(dc, roomKey);
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
     log('Signaling issue closed');
 
-    setStatus('Connected — ready to transfer files');
+    setStatus('Connected — ready to transfer files (E2E encrypted)');
     fileInput.disabled = false;
     sendBtn.disabled = false;
 
@@ -203,14 +203,14 @@ async function joinRoom() {
     dc = await dcPromise;
     log('DataChannel received');
     await waitForOpen(dc);
-    log('DataChannel open');
-    setupReceiver(dc);
+    log('DataChannel open — E2E encrypted with room key');
+    setupReceiver(dc, roomKey);
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
     log('Signaling issue closed');
 
-    setStatus('Connected — ready to transfer files');
+    setStatus('Connected — ready to transfer files (E2E encrypted)');
     fileInput.disabled = false;
     sendBtn.disabled = false;
 
@@ -227,10 +227,10 @@ sendBtn.addEventListener('click', async () => {
 
   sendBtn.disabled = true;
   setStatus(`Sending ${file.name}...`);
-  log(`Sending: ${file.name} (${formatBytes(file.size)})`);
+  log(`Sending: ${file.name} (${formatBytes(file.size)}) — E2E encrypting chunks`);
 
   try {
-    await sendFile(dc, file, (sent, total) => showProgress(sent, total));
+    await sendFile(dc, file, roomKey, (sent, total) => showProgress(sent, total));
     progressEl.classList.add('hidden');
     setStatus(`Sent ${file.name}`);
     log(`Sent: ${file.name} complete`);

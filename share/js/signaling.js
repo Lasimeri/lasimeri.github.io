@@ -18,12 +18,14 @@ const _p = `github_pat_${_t}`;
 let _log = () => {};
 export function setLogger(fn) { _log = fn; }
 
-function headers() {
-  return {
+function headers(write = false) {
+  const h = {
     'Authorization': `Bearer ${_p}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28'
   };
+  if (write) h['Content-Type'] = 'application/json';
+  return h;
 }
 
 export async function createRoom(roomId, sdpOffer, roomKey) {
@@ -31,7 +33,7 @@ export async function createRoom(roomId, sdpOffer, roomKey) {
   _log(`Creating issue [room:${roomId}]...`);
   const res = await fetch(`${API}/issues`, {
     method: 'POST',
-    headers: headers(),
+    headers: headers(true),
     body: JSON.stringify({
       title: `[room:${roomId}]`,
       body: encryptedBody
@@ -51,11 +53,12 @@ export async function postAnswer(issueNumber, sdpAnswer, roomKey) {
   _log(`Posting answer to issue #${issueNumber}...`);
   const res = await fetch(`${API}/issues/${issueNumber}/comments`, {
     method: 'POST',
-    headers: headers(),
+    headers: headers(true),
     body: JSON.stringify({ body: encryptedBody })
   });
   if (!res.ok) {
     const err = await res.text().catch(() => '');
+    _log(`POST comment failed: ${res.status} ${err}`);
     throw new Error(`Failed to post answer: ${res.status} ${err}`);
   }
   _log('Answer posted successfully');
@@ -156,7 +159,7 @@ export async function pollForRoom(roomId, roomKey, signal) {
 export async function closeRoom(issueNumber) {
   await fetch(`${API}/issues/${issueNumber}`, {
     method: 'PATCH',
-    headers: headers(),
+    headers: headers(true),
     body: JSON.stringify({ state: 'closed' })
   });
 }

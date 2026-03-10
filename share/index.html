@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sea of glass — share</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1><span>sea of glass</span> / share</h1>
+    <p class="subtitle">encrypted p2p file transfer — serverless, zero trust</p>
+
+    <span id="conn-state" class="conn-state hidden"></span>
+    <div id="status"></div>
+
+    <div id="join-section">
+      <button id="create-room">create room</button>
+    </div>
+
+    <div id="share-section" class="share-section hidden">
+      <p style="font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.5rem;">
+        share this link — the encryption key is in the fragment
+      </p>
+      <div class="share-row">
+        <input type="text" id="share-link" readonly>
+        <button id="copy-link">Copy</button>
+      </div>
+    </div>
+
+    <hr class="sep">
+
+    <div class="file-section">
+      <input type="file" id="file-input" disabled>
+      <button id="send-file" disabled>send</button>
+    </div>
+
+    <div id="progress" class="progress-container hidden">
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill"></div>
+      </div>
+      <div id="progress-text"></div>
+    </div>
+
+    <div id="received" class="received-files hidden"></div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

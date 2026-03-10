@@ -1,0 +1,34 @@
+name: Cleanup stale signaling issues
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # every hour
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close stale signal issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SIGNAL_PAT }}
+          script: |
+            const cutoff = Date.now() - (60 * 60 * 1000); // 1 hour
+            const issues = await github.rest.issues.listForRepo({
+              owner: 'Lasimeri',
+              repo: 'encrypted-sea',
+              labels: 'signal',
+              state: 'open',
+              per_page: 100
+            });
+            for (const issue of issues.data) {
+              if (new Date(issue.created_at).getTime() < cutoff) {
+                await github.rest.issues.update({
+                  owner: 'Lasimeri',
+                  repo: 'encrypted-sea',
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+              }
+            }

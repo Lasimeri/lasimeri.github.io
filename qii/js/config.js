@@ -2,13 +2,14 @@
 
 var QII = QII || {};
 
+// Direct PAK URL — same-origin via GitHub Pages, no CORS issues
+QII.DIRECT_PAK_URL = '/qwasm2-assets/pak0.pak';
+
+// Fallback: exe download + JSZip extraction (requires CORS)
 QII.DEMO_EXE_URL = 'https://github.com/Lasimeri/qwasm2-assets/releases/download/v1.0/q2-314-demo-x86.exe';
 
 // SHA-256 of the extracted pak0.pak (demo version)
 QII.PAK0_SHA256 = 'cae257182f34d3913f3d663e1d7cf865d668feda6af393d4ecf3e9e408b48d09';
-
-// SHA-256 of the demo exe itself
-QII.EXE_SHA256 = '7ace5a43983f10d6bdc9d9b6e17a1032ba6223118d389bd170df89b945a04a1e';
 
 // Path inside the self-extracting ZIP where pak0.pak lives
 QII.PAK_PATH_IN_EXE = 'Install/Data/baseq2/pak0.pak';

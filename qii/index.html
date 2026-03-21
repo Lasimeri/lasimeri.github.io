@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sea of glass / qii</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1><span>sea of glass</span> / qii</h1>
+    <p class="subtitle">quake ii &mdash; browser engine via qwasm2</p>
+
+    <span id="status-badge" class="status-badge">idle</span>
+    <div id="status"></div>
+
+    <div class="section-label">&mdash;&mdash; renderer &mdash;&mdash;</div>
+    <div class="option-group">
+      <label><input type="radio" name="renderer" value="gles3" checked> WebGL 2 (GLES 3.x)</label>
+      <label><input type="radio" name="renderer" value="gl1"> WebGL 1 (GL1 via GL4ES)</label>
+      <label><input type="radio" name="renderer" value="soft"> Software</label>
+    </div>
+
+    <div class="section-label">&mdash;&mdash; game data &mdash;&mdash;</div>
+    <div class="data-section">
+      <div class="option-group">
+        <label><input type="radio" name="datamode" value="demo" checked> demo (auto-download, ~37 MB)</label>
+        <label><input type="radio" name="datamode" value="upload"> upload PAK files (full game)</label>
+      </div>
+      <div id="pak-upload" class="hidden">
+        <input type="file" id="pak-input" accept=".pak" multiple>
+      </div>
+      <div id="cache-info" class="hidden"></div>
+    </div>
+
+    <hr class="sep">
+
+    <button id="launch">launch quake ii</button>
+
+    <div id="progress-section" class="progress-container hidden">
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill"></div>
+      </div>
+      <div id="progress-text"></div>
+    </div>
+
+    <div id="canvas-wrap" class="canvas-wrap hidden">
+      <canvas id="canvas" width="800" height="600" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    </div>
+
+    <div id="controls-hint" class="controls-hint hidden">
+      wasd: move &nbsp; mouse: look &nbsp; space: jump &nbsp; esc: menu &nbsp; click canvas to capture mouse
+    </div>
+
+    <div id="console-log" class="console-log hidden"></div>
+
+    <div class="footer">
+      engine: <a href="https://github.com/GMH-Code/Qwasm2" target="_blank">qwasm2</a> (yamagi quake ii) &mdash; gpl v2<br>
+      <a href="/">&larr; sea of glass</a>
+    </div>
+  </div>
+
+  <script src="lib/jszip.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/loader.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

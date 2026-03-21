@@ -1,0 +1,244 @@
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --border: #1e1e2e;
+  --text: #c8c8d0;
+  --text-dim: #6e6e7e;
+  --accent: #4a9eff;
+  --accent-dim: #2a5e9f;
+  --success: #4ade80;
+  --error: #f87171;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--mono);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.container {
+  max-width: 900px;
+  width: 100%;
+}
+
+h1 {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.05em;
+}
+
+h1 span {
+  color: var(--accent);
+}
+
+.subtitle {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.status-badge {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: var(--text-dim);
+}
+
+.status-badge.status-loading,
+.status-badge.status-extracting,
+.status-badge.status-booting {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.status-badge.status-running {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.status-badge.status-error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+#status {
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+  min-height: 1.2em;
+}
+
+.section-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.1em;
+}
+
+.option-group {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.option-group label {
+  font-size: 0.75rem;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.option-group input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.data-section {
+  margin-bottom: 1rem;
+}
+
+#pak-upload {
+  margin-top: 0.5rem;
+}
+
+#pak-upload input[type="file"] {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+#pak-upload input[type="file"]::file-selector-button {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+#cache-info {
+  font-size: 0.65rem;
+  color: var(--success);
+  margin-top: 0.3rem;
+}
+
+.sep {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0;
+}
+
+button {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.7rem 1.5rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  letter-spacing: 0.05em;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.progress-container {
+  margin-top: 1rem;
+}
+
+.progress-bar-bg {
+  height: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.15s;
+}
+
+#progress-text {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+}
+
+.canvas-wrap {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border);
+  background: #000;
+  position: relative;
+}
+
+.canvas-wrap canvas {
+  width: 100%;
+  aspect-ratio: 4/3;
+  display: block;
+  outline: none;
+  border: none;
+}
+
+.controls-hint {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  margin-top: 0.75rem;
+  line-height: 1.8;
+}
+
+.console-log {
+  margin-top: 1.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.footer {
+  margin-top: 1.5rem;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  opacity: 0.5;
+  line-height: 1.8;
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
+.hidden { display: none !important; }

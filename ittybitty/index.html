@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>itty-bitty sea of glass</title>
+  <meta property="og:title" content="itty-bitty sea of glass">
+  <meta property="og:description" content="HTML in a URL — the URL is the document">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0a0a0f">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+
+</head>
+<body>
+  <div class="container" id="app">
+    <header>
+      <h1>itty-bitty <span>sea of glass</span></h1>
+      <p class="subtitle">the URL is the document</p>
+    </header>
+
+    <!-- Editor mode -->
+    <div id="editor-view" class="hidden">
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <select id="type-select" title="Content type">
+            <option value="html">HTML</option>
+            <option value="markdown">Markdown</option>
+            <option value="svg">SVG</option>
+            <option value="json">JSON</option>
+            <option value="text">Text</option>
+          </select>
+          <select id="format-select" title="Compression">
+            <option value="gzip">Gzip</option>
+            <option value="none">None</option>
+          </select>
+          <select id="template-select" title="Template">
+            <option value="">template...</option>
+            <option value="blank">Blank HTML</option>
+            <option value="minimal">Minimal Page</option>
+            <option value="dark">Dark Theme</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <label class="encrypt-toggle">
+            <input type="checkbox" id="encrypt-check">
+            <span>encrypt</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="passphrase-row" class="passphrase-row hidden">
+        <input type="password" id="passphrase" placeholder="passphrase" autocomplete="off">
+      </div>
+
+      <div class="editor-split">
+        <div id="editor-pane" class="pane"></div>
+        <div id="preview-pane" class="pane">
+          <div class="pane-label">preview</div>
+          <div id="preview-container"></div>
+        </div>
+      </div>
+
+      <div class="counter-bar">
+        <span id="counter-raw">raw: 0 B</span>
+        <span id="counter-compressed">compressed: 0 B</span>
+        <span id="counter-url">URL: 0 chars</span>
+      </div>
+
+      <div id="url-warnings"></div>
+
+      <div class="action-bar">
+        <input type="text" id="title-input" placeholder="optional title">
+        <button id="generate-btn">generate link</button>
+      </div>
+
+      <div id="output-section" class="output-section hidden">
+        <div class="share-row">
+          <input type="text" id="output-url" readonly>
+          <button id="copy-btn">copy</button>
+          <button id="share-btn" class="hidden">share</button>
+        </div>
+        <div class="output-actions">
+          <button id="qr-btn">QR code</button>
+          <button id="open-btn">open</button>
+        </div>
+        <div id="qr-container" class="qr-container hidden"></div>
+      </div>
+    </div>
+
+    <!-- Render mode -->
+    <div id="render-view" class="hidden">
+      <div id="render-title" class="render-title"></div>
+      <div id="render-container" class="render-container"></div>
+      <div class="render-footer">
+        <button id="edit-btn">edit a copy</button>
+        <a href="/ittybitty/" class="footer-link">create your own</a>
+      </div>
+    </div>
+
+    <!-- Decrypt prompt -->
+    <div id="decrypt-view" class="hidden">
+      <p class="decrypt-label">this content is encrypted</p>
+      <div class="decrypt-row">
+        <input type="password" id="decrypt-passphrase" placeholder="passphrase" autocomplete="off">
+        <button id="decrypt-btn">decrypt</button>
+      </div>
+      <div id="decrypt-error" class="error-text hidden"></div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading-view" class="hidden">
+      <div class="loading-text">decoding...</div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js?v=2"></script>
+</body>
+</html>

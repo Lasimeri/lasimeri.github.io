@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>itty-bitty sea of glass</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      background: #0a0a0f;
+      color: #c8c8d0;
+      line-height: 1.7;
+      padding: 3rem 1.5rem;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: #6e6e7e;
+      margin-bottom: 0.25rem;
+    }
+    h1 span { color: #4a9eff; }
+    .tagline {
+      font-size: 0.75rem;
+      color: #6e6e7e;
+      opacity: 0.6;
+      margin-bottom: 2.5rem;
+    }
+    h2 {
+      font-size: 1rem;
+      font-weight: 400;
+      color: #e8e8f0;
+      margin: 2rem 0 0.75rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid #1e1e2e;
+    }
+    p { margin-bottom: 1rem; font-size: 0.85rem; }
+    a { color: #4a9eff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      background: #12121a;
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      font-size: 0.85em;
+      border: 1px solid #1e1e2e;
+    }
+    pre {
+      background: #12121a;
+      border: 1px solid #1e1e2e;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+    pre code { background: none; border: none; padding: 0; }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .feature {
+      background: #12121a;
+      border: 1px solid #1e1e2e;
+      padding: 1rem;
+    }
+    .feature h3 {
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: #4a9eff;
+      margin-bottom: 0.4rem;
+    }
+    .feature p {
+      font-size: 0.75rem;
+      color: #6e6e7e;
+      margin: 0;
+    }
+    .url-example {
+      background: #12121a;
+      border: 1px solid #1e1e2e;
+      padding: 1rem;
+      margin: 1rem 0;
+      font-size: 0.7rem;
+      word-break: break-all;
+      color: #6e6e7e;
+    }
+    .url-example span { color: #4a9eff; }
+    .url-example em { color: #4ade80; font-style: normal; }
+    .url-example strong { color: #fbbf24; font-weight: normal; }
+    .cta {
+      display: inline-block;
+      margin-top: 1.5rem;
+      padding: 0.6rem 1.5rem;
+      border: 1px solid #4a9eff;
+      color: #4a9eff;
+      font-family: inherit;
+      font-size: 0.8rem;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .cta:hover {
+      background: rgba(74, 158, 255, 0.1);
+      text-decoration: none;
+    }
+    .sep {
+      border: none;
+      border-top: 1px solid #1e1e2e;
+      margin: 2rem 0;
+    }
+    .footer {
+      font-size: 0.65rem;
+      color: #6e6e7e;
+      opacity: 0.5;
+      margin-top: 2rem;
+    }
+    @media (max-width: 500px) {
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>itty-bitty <span>sea of glass</span></h1>
+  <p class="tagline">the URL is the document</p>
+
+  <p>
+    This entire page is stored in the URL. There is no server, no database, no API.
+    The HTML is compressed, encoded into the URL fragment, and decoded client-side.
+    Share the link and the page travels with it.
+  </p>
+
+  <h2>how it works</h2>
+  <div class="url-example">
+    seaof.glass/ittybitty/#/<span>Page-Title</span>/<em>h</em><em>g</em><strong>0</strong>,<span>H4sIAAAA...compressed data...</span>
+  </div>
+  <p>
+    The fragment after <code>#</code> contains everything: an optional title,
+    a 3-character header (<em style="color:#4ade80">type</em> + <em style="color:#4ade80">format</em> + <strong style="color:#fbbf24">encryption flag</strong>),
+    and the gzip-compressed, base64url-encoded payload.
+  </p>
+
+  <h2>features</h2>
+  <div class="feature-grid">
+    <div class="feature">
+      <h3>code editor</h3>
+      <p>CodeMirror 6 with syntax highlighting, line numbers, and live preview as you type.</p>
+    </div>
+    <div class="feature">
+      <h3>encryption</h3>
+      <p>AES-256-GCM with PBKDF2 key derivation. Passphrase never leaves your browser.</p>
+    </div>
+    <div class="feature">
+      <h3>zero server</h3>
+      <p>Pure static site. Content lives in the URL fragment — never sent to any server.</p>
+    </div>
+    <div class="feature">
+      <h3>offline ready</h3>
+      <p>Service Worker caches the app. Create and view pages without a network connection.</p>
+    </div>
+    <div class="feature">
+      <h3>multi-format</h3>
+      <p>HTML, Markdown, SVG, JSON, plain text. Auto-detected or explicitly set.</p>
+    </div>
+    <div class="feature">
+      <h3>shareable</h3>
+      <p>QR code generation, Web Share API, copy to clipboard. One link, everything included.</p>
+    </div>
+  </div>
+
+  <h2>url format</h2>
+  <pre><code>Type:    h(tml)  m(arkdown)  s(vg)  j(son)  t(ext)
+Format:  g(zip)  n(one)  l(zma, legacy decode only)
+Encrypt: 0 = plaintext, 1 = AES-256-GCM encrypted
+
+Example: #/My-Page/hg0,H4sIAAAA...
+         #/Secret/hg1,salt+iv+ciphertext...</code></pre>
+
+  <h2>encryption details</h2>
+  <p>
+    When encryption is enabled, the payload is first gzip-compressed, then encrypted
+    with AES-256-GCM. The key is derived from your passphrase using PBKDF2 with
+    100,000 iterations of SHA-256 and a random 16-byte salt. The salt and 12-byte IV
+    are prepended to the ciphertext. Recipients enter the passphrase to decrypt —
+    the key is never transmitted anywhere.
+  </p>
+
+  <h2>legacy compatibility</h2>
+  <p>
+    URLs from the original <a href="https://github.com/arfct/itty-bitty">itty-bitty</a>
+    project are automatically detected and decoded. LZMA decompression is supported
+    for reading legacy links.
+  </p>
+
+  <hr class="sep">
+
+  <p>
+    This page you're reading right now is ~3KB of HTML, compressed to ~1.5KB,
+    living entirely inside the URL in your address bar. No server involved.
+  </p>
+
+  <a href="/ittybitty/" class="cta">create your own</a>
+
+  <p class="footer">
+    built on sea of glass — a serverless web experiment
+  </p>
+</body>
+</html>

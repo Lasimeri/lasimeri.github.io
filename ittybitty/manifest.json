@@ -1,0 +1,10 @@
+{
+  "name": "itty-bitty sea of glass",
+  "short_name": "itty-bitty",
+  "description": "HTML in a URL — the URL is the document",
+  "start_url": "/ittybitty/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "icons": []
+}

@@ -1,182 +1,262 @@
-<!DOCTYPE HTML>
-<!--
-	Sea of Glass - A place of peace and reflection
-	Inspired by Revelation 4:6
--->
-<html>
-	<head>
-		<title>Sea of Glass - Before the Throne</title>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<link rel="stylesheet" href="assets/css/main.css" />
-		<style>
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sea of glass</title>
+  <meta property="og:title" content="sea of glass">
+  <meta property="og:description" content="And before the throne there was a sea of glass like unto crystal">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #c8c8d0;
+      --text-dim: #6e6e7e;
+      --accent: #4a9eff;
+      --accent-dim: #2a5e9f;
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    }
 
-			body {
-				font-family: 'Arial', sans-serif;
-				background: #000000;
-				min-height: 100vh;
-				overflow-x: hidden;
-			}
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-			.hero {
-				height: 100vh;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				text-align: center;
-				color: #fff;
-				position: relative;
-			}
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+    }
 
-			.hero-content {
-				max-width: 800px;
-				padding: 0 20px;
-			}
+    .container {
+      max-width: 700px;
+      width: 100%;
+    }
 
-			.hero h1 {
-				font-size: 4rem;
-				margin-bottom: 20px;
-			}
+    /* Header */
+    header {
+      margin-bottom: 2.5rem;
+    }
 
-			.hero p {
-				font-size: 1.5rem;
-				margin-bottom: 30px;
-				opacity: 0.9;
-			}
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+    }
 
-			.sections {
-				padding: 80px 0;
-			}
+    .verse {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      opacity: 0.6;
+      line-height: 1.6;
+      font-style: italic;
+    }
 
-			.section {
-				padding: 100px 0;
-				max-width: 1200px;
-				margin: 0 auto;
-				color: #fff;
-			}
+    .verse em {
+      display: block;
+      margin-top: 0.2rem;
+      font-style: normal;
+      opacity: 0.8;
+    }
 
-			.section h2 {
-				font-size: 3rem;
-				margin-bottom: 50px;
-				text-align: center;
-			}
+    /* Separator */
+    .sep {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
 
-			.section p {
-				font-size: 1.2rem;
-				line-height: 1.8;
-				margin-bottom: 30px;
-				max-width: 800px;
-				margin-left: auto;
-				margin-right: auto;
-			}
+    /* Section labels */
+    .section-label {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: lowercase;
+    }
 
-			.container {
-				padding: 50px;
-				text-align: center;
-			}
+    /* Project cards */
+    .projects {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
 
-			.footer {
-				text-align: center;
-				padding: 50px 0;
-				color: #fff;
-			}
+    .project {
+      background: var(--bg);
+      padding: 1rem 1.2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
 
-			.footer h3 {
-				font-size: 2rem;
-				margin-bottom: 20px;
-				color: #FF6D00;
-			}
+    .project:hover {
+      background: var(--surface);
+    }
 
-			.footer p {
-				opacity: 0.8;
-				margin-bottom: 30px;
-			}
+    .project-name {
+      font-size: 0.8rem;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
 
-			.copyright {
-				list-style: none;
-				display: flex;
-				justify-content: center;
-				gap: 20px;
-				margin-top: 20px;
-				opacity: 0.6;
-			}
+    .project-name span {
+      color: var(--accent);
+    }
 
-			.mobile-nav {
-				display: none;
-				flex-direction: column;
-				cursor: pointer;
-			}
+    .project-desc {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      text-align: right;
+      flex-shrink: 0;
+      margin-left: 1rem;
+    }
 
-			.mobile-nav span {
-				width: 25px;
-				height: 3px;
-				background: #fff;
-				margin: 3px 0;
-				transition: 0.3s;
-			}
+    /* About block */
+    .about {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      line-height: 1.8;
+      margin-bottom: 2rem;
+    }
 
-			@media (max-width: 768px) {
-				.hero h1 {
-					font-size: 2.5rem;
-				}
-				
-				.hero p {
-					font-size: 1.2rem;
-				}
-				
-				.section h2 {
-					font-size: 2rem;
-				}
-			}
-		</style>
-	</head>
-	<body class="is-preload">
+    .about p {
+      margin-bottom: 0.75rem;
+    }
 
-		<section class="hero" id="home">
-			<div class="hero-content">
-				<h1>Sea of Glass</h1>
-				<p>"And before the throne there was a sea of glass like unto crystal"<br />
-				<em>Revelation 4:6</em></p>
-			</div>
-		</section>
+    .about a {
+      color: var(--accent);
+      text-decoration: none;
+    }
 
-		<section class="section" id="about">
-			<h2>The Sea of Glass</h2>
-			<div class="container">
-				<p>
-					In the book of Revelation, the sea of glass represents the perfect peace and purity that exists before God's throne.
-					It symbolizes the crystal-clear nature of divine truth and the serene worship of heaven. This sacred space speaks
-					of perfect clarity. The sea of glass reminds us of the eternal rest and worship that awaits those who persevere in faith.
-				</p>
-			</div>
-		</section>
+    .about a:hover {
+      text-decoration: underline;
+    }
 
-		<footer class="footer" id="contact">
-			<div class="container">
-				<h3>Eternal Peace</h3>
-				<p>"And them that had gotten the victory... stand on the sea of glass, having the harps of God." - Revelation 15:2</p>
-				<ul class="copyright">
-					<li>&copy; 2025 Sea of Glass.</li>
-					<li>Inspired by Revelation 4:6</li>
-				</ul>
-			</div>
-		</footer>
+    /* Status line */
+    .status-line {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      opacity: 0.4;
+      margin-bottom: 2rem;
+    }
 
-		<!-- Scripts -->
-		<script src="assets/js/main.js"></script>
-		<script>
-			// Parallax scrolling effect
-			window.addEventListener('scroll', function() {
-				const scrolled = window.pageYOffset;
-				const hero = document.getElementById('home');
-				const rate = scrolled * -0.5;
-				hero.style.transform = `translateY(${rate}px)`;
-			});
-		</script>
-	</body>
+    .status-line span::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      margin-right: 0.4rem;
+      vertical-align: middle;
+    }
+
+    /* Footer */
+    .footer {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      opacity: 0.35;
+      line-height: 1.8;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      body { padding: 1.25rem; }
+
+      .project {
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .project-desc {
+        text-align: left;
+        margin-left: 0;
+      }
+
+      .status-line {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>sea of glass</h1>
+      <p class="verse">
+        "And before the throne there was a sea of glass like unto crystal"
+        <em>Revelation 4:6</em>
+      </p>
+    </header>
+
+    <div class="section-label">&mdash;&mdash; projects &mdash;&mdash;</div>
+    <div class="projects">
+      <a href="/qii/" class="project">
+        <div class="project-name"><span>/</span>qii</div>
+        <div class="project-desc">quake ii in the browser via qwasm2</div>
+      </a>
+      <a href="/ittybitty/" class="project">
+        <div class="project-name"><span>/</span>ittybitty</div>
+        <div class="project-desc">the URL is the document</div>
+      </a>
+      <a href="/share/" class="project">
+        <div class="project-name"><span>/</span>share</div>
+        <div class="project-desc">p2p file sharing</div>
+      </a>
+      <a href="/p2025/" class="project">
+        <div class="project-name"><span>/</span>p2025</div>
+        <div class="project-desc">portfolio 2025</div>
+      </a>
+    </div>
+
+    <hr class="sep">
+
+    <div class="section-label">&mdash;&mdash; about &mdash;&mdash;</div>
+    <div class="about">
+      <p>
+        a collection of things built and hosted at the edge of the crystal sea.
+        everything here runs in your browser, on your hardware, under your control.
+      </p>
+    </div>
+
+    <div class="status-line">
+      <span>static &mdash; no tracking</span>
+      <span>github pages</span>
+      <span>seaof.glass</span>
+    </div>
+
+    <hr class="sep">
+
+    <div class="footer">
+      &copy; 2025 sea of glass<br>
+      "and them that had gotten the victory... stand on the sea of glass, having the harps of god."
+      &mdash; revelation 15:2
+    </div>
+  </div>
+</body>
 </html>

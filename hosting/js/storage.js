@@ -38,10 +38,9 @@ async function headers(write = false) {
   return h;
 }
 
-// Create issue with metadata + first chunk in body
-export async function createFile(fileId, metadata, firstChunk, prefix = 'file') {
+// Create issue with metadata only in body
+export async function createFile(fileId, metadata, prefix = 'file') {
   await init();
-  const body = JSON.stringify(metadata) + '\n---\n' + firstChunk;
   const title = '[' + prefix + ':' + fileId + ']';
   _log('Creating issue ' + title + '...');
   const res = await fetch(await apiUrl('/issues'), {
@@ -49,7 +48,7 @@ export async function createFile(fileId, metadata, firstChunk, prefix = 'file') 
     headers: await headers(true),
     body: JSON.stringify({
       title: title,
-      body: body
+      body: JSON.stringify(metadata)
     })
   });
   if (!res.ok) {
@@ -104,14 +103,11 @@ export async function fetchFile(fileId) {
   if (!issueNumber) throw new Error('File not found');
   _log('Found issue #' + issueNumber);
 
-  // Parse body: metadata + chunk 0
-  const sepIdx = issueBody.indexOf('\n---\n');
-  if (sepIdx === -1) throw new Error('Invalid file format');
-  const metadata = JSON.parse(issueBody.slice(0, sepIdx));
-  const chunk0 = issueBody.slice(sepIdx + 5);
+  // Parse body: metadata only
+  const metadata = JSON.parse(issueBody);
 
-  // Fetch all comments (remaining chunks)
-  const chunks = [chunk0];
+  // Fetch all chunks from comments
+  const chunks = [];
   let commentPage = 1;
   while (true) {
     const res = await fetch(
@@ -148,11 +144,8 @@ export async function listFiles() {
       let name = null;
       if (isPublic && i.body) {
         try {
-          const sepIdx = i.body.indexOf('\n---\n');
-          if (sepIdx > -1) {
-            const meta = JSON.parse(i.body.slice(0, sepIdx));
-            name = meta.name;
-          }
+          const meta = JSON.parse(i.body);
+          name = meta.name;
         } catch (e) {}
       }
       return { id, name, created: i.created_at, issueNumber: i.number, isPublic };

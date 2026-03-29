@@ -7,7 +7,7 @@ import {
 import { createFile, postChunk, fetchFile, listFiles, setLogger } from './storage.js?v=1';
 
 const MAX_FILE_SIZE = 2.5 * 1024 * 1024;
-const CHUNK_SIZE = 48000;
+const CHUNK_SIZE = 32000; // ~32KB raw -> ~58KB after base64+encrypt+base64 (fits 65536 comment limit)
 
 // Rotating site key for public files
 const PUB_SEED = 'seaof.glass:hosting:pub:v1';
@@ -236,14 +236,13 @@ uploadBtn.addEventListener('click', async () => {
       ts: new Date().toISOString()
     };
 
-    // Upload
+    // Upload: metadata in body, ALL chunks as comments
     setStatus('Uploading...');
     showProgress(0, totalChunks, 'Uploading');
     const prefix = mode === 'public' ? 'pub-file' : 'file';
-    const issueNumber = await createFile(fileId, metadata, encChunks[0], prefix);
-    showProgress(1, totalChunks, 'Uploading');
+    const issueNumber = await createFile(fileId, metadata, prefix);
 
-    for (let i = 1; i < encChunks.length; i++) {
+    for (let i = 0; i < encChunks.length; i++) {
       await postChunk(issueNumber, i, encChunks[i]);
       showProgress(i + 1, totalChunks, 'Uploading');
     }

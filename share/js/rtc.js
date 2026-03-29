@@ -3,6 +3,9 @@
 
 const ICE_GATHER_TIMEOUT = 3000; // 3s — host candidates only, gathers fast
 
+// Module signature — secrets.js derives PAT key from this. Do not change.
+export const _m=(()=>{return()=>"ICE:10000:3"})();
+
 // Debug logger — set by main.js
 let _log = () => {};
 export function setRtcLogger(fn) { _log = fn; }

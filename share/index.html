@@ -10,17 +10,17 @@
   <div class="container">
     <h1><span>sea of glass</span> / share</h1>
     <p class="subtitle">encrypted p2p file transfer — serverless, zero trust</p>
-    <p class="disclaimer">
-      direct peer-to-peer only — both devices must be on the same network or
-      have unrestricted NAT. connections will fail across most mobile carriers
-      and corporate firewalls without port forwarding.
-    </p>
 
     <span id="conn-state" class="conn-state hidden"></span>
     <div id="status"></div>
 
     <div id="join-section">
       <button id="create-room">create room</button>
+      <p class="subtitle" style="margin-top: 1rem;">
+        direct peer-to-peer only — both devices must be on the same network or
+        have unrestricted NAT. connections will fail across most mobile carriers
+        and corporate firewalls without port forwarding.
+      </p>
     </div>
 
     <div id="share-section" class="share-section hidden">
@@ -52,6 +52,6 @@
     <div id="debug" class="debug-log hidden"></div>
   </div>
 
-  <script type="module" src="js/main.js?v=13"></script>
+  <script type="module" src="js/main.js?v=14"></script>
 </body>
 </html>

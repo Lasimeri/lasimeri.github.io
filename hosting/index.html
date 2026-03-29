@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sea of glass - hosting</title>
+  <meta property="og:title" content="sea of glass - hosting">
+  <meta property="og:description" content="encrypted file hosting - serverless, zero trust">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0a0a0f">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1><span>sea of glass</span> / hosting</h1>
+    <p class="subtitle">encrypted file hosting - serverless, zero trust - 2.5 MB limit</p>
+
+    <div id="status"></div>
+
+    <div id="upload-section">
+      <div class="upload-zone">
+        <input type="file" id="file-input">
+        <button id="upload-btn">encrypt & upload</button>
+      </div>
+    </div>
+
+    <div id="share-section" class="hidden">
+      <p class="hint">share this link - the decryption key is in the fragment</p>
+      <div class="share-row">
+        <input type="text" id="share-link" readonly>
+        <button id="copy-link">Copy</button>
+      </div>
+    </div>
+
+    <div id="download-section" class="hidden">
+      <div class="dl-card">
+        <div class="dl-info">
+          <span id="dl-filename"></span>
+          <span id="dl-size"></span>
+        </div>
+        <button id="dl-btn">download</button>
+      </div>
+    </div>
+
+    <div id="progress" class="progress-container hidden">
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill"></div>
+      </div>
+      <div id="progress-text"></div>
+    </div>
+
+    <div class="log-box">
+      <div class="log-header">log</div>
+      <div id="log" class="log-body"></div>
+    </div>
+
+    <div class="file-list-box">
+      <div class="file-list-header">
+        <span>hosted files</span>
+        <button id="dir-refresh" class="refresh-btn">refresh</button>
+      </div>
+      <div id="directory-list" class="file-list-body">
+        <div class="dir-empty">click refresh to load</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>

@@ -78,6 +78,35 @@ h1 span { color: var(--accent); }
   margin-right: 0.5rem;
 }
 
+/* Options row */
+.options-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.options-row select,
+.options-row input {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  outline: none;
+  flex: 1;
+}
+
+.options-row select:focus,
+.options-row input:focus { border-color: var(--accent); }
+
+.options-row select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.options-row button { flex-shrink: 0; }
+
 /* Buttons */
 button {
   font-family: var(--mono);
@@ -239,8 +268,8 @@ button:disabled {
 
 .dir-entry {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.7rem;
   border-bottom: 1px solid var(--border);
@@ -248,14 +277,32 @@ button:disabled {
 
 .dir-entry:last-child { border-bottom: none; }
 
+.dir-entry.clickable { cursor: pointer; }
+.dir-entry.clickable:hover { background: var(--surface); }
+
 .dir-id {
   color: var(--accent);
   font-family: var(--mono);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.dir-badge {
+  font-size: 0.5rem;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid;
+  flex-shrink: 0;
+}
+
+.dir-badge.pub { color: var(--success); border-color: var(--success); }
+.dir-badge.enc { color: var(--text-dim); border-color: var(--border); }
 
 .dir-age {
   color: var(--text-dim);
   font-size: 0.6rem;
+  flex-shrink: 0;
 }
 
 .dir-empty {

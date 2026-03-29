@@ -39,15 +39,16 @@ async function headers(write = false) {
 }
 
 // Create issue with metadata + first chunk in body
-export async function createFile(fileId, metadata, firstChunk) {
+export async function createFile(fileId, metadata, firstChunk, prefix = 'file') {
   await init();
   const body = JSON.stringify(metadata) + '\n---\n' + firstChunk;
-  _log('Creating issue [file:' + fileId + ']...');
+  const title = '[' + prefix + ':' + fileId + ']';
+  _log('Creating issue ' + title + '...');
   const res = await fetch(await apiUrl('/issues'), {
     method: 'POST',
     headers: await headers(true),
     body: JSON.stringify({
-      title: '[file:' + fileId + ']',
+      title: title,
       body: body
     })
   });
@@ -90,8 +91,8 @@ export async function fetchFile(fileId) {
     const issues = await res.json();
     if (issues.length === 0) break;
     const match = issues.find(i => {
-      const m = i.title.match(/^\[file:([^\]]+)\]/);
-      return m && m[1] === fileId;
+      const m = i.title.match(/^\[(file|pub-file):([^\]]+)\]/);
+      return m && m[2] === fileId;
     });
     if (match) {
       issueNumber = match.number;
@@ -139,9 +140,21 @@ export async function listFiles() {
   if (!res.ok) throw new Error('List failed: ' + res.status);
   const issues = await res.json();
   return issues
-    .filter(i => i.title.startsWith('[file:'))
+    .filter(i => i.title.startsWith('[file:') || i.title.startsWith('[pub-file:'))
     .map(i => {
-      const id = i.title.slice(6, -1);
-      return { id, created: i.created_at, issueNumber: i.number };
+      const isPublic = i.title.startsWith('[pub-file:');
+      const id = isPublic ? i.title.slice(10, -1) : i.title.slice(6, -1);
+      // Extract filename from metadata in body for public files
+      let name = null;
+      if (isPublic && i.body) {
+        try {
+          const sepIdx = i.body.indexOf('\n---\n');
+          if (sepIdx > -1) {
+            const meta = JSON.parse(i.body.slice(0, sepIdx));
+            name = meta.name;
+          }
+        } catch (e) {}
+      }
+      return { id, name, created: i.created_at, issueNumber: i.number, isPublic };
     });
 }

@@ -20,6 +20,14 @@
     <div id="upload-section">
       <div class="upload-zone">
         <input type="file" id="file-input">
+      </div>
+      <div class="options-row">
+        <select id="mode-select">
+          <option value="shareable">shareable</option>
+          <option value="public">public</option>
+          <option value="device">device-bound</option>
+        </select>
+        <input type="password" id="password-input" placeholder="password (optional)">
         <button id="upload-btn">encrypt & upload</button>
       </div>
     </div>

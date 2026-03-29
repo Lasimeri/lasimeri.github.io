@@ -2,17 +2,17 @@
 
 import {
   generateKey, exportKey, importKey, deriveRoomId
-} from './crypto.js?v=13';
+} from './crypto.js?v=14';
 import {
   createRoom, postAnswer, pollForAnswer, pollForRoom, closeRoom,
   setLogger
-} from './signaling.js?v=13';
+} from './signaling.js?v=14';
 import {
   createPeerConnection, createOffer, createAnswer,
   acceptAnswer, onDataChannel, waitForOpen,
   setRtcLogger
 } from './rtc.js?v=14';
-import { sendFile, receiveFile, getTransferCount, getMaxTransfers, getMaxFileSize } from './transfer.js?v=13';
+import { sendFile, receiveFile, getTransferCount, getMaxTransfers, getMaxFileSize } from './transfer.js?v=14';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);

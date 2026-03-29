@@ -1,7 +1,7 @@
 // signaling.js — GitHub Issues API signaling with ETag polling
 
-import { encrypt, decrypt } from './crypto.js?v=13';
-import { unlock, unseal, dropDerivedKey } from './secrets.js?v=13';
+import { encrypt, decrypt } from './crypto.js?v=14';
+import { unlock, unseal, dropDerivedKey } from './secrets.js?v=14';
 
 const _e=[
 ['kt3Wob4k','4IBlLVWt','SmX9Rf1d','gNuH0Ahg','d2RCNMn5','0H5ej5C5'],
@@ -12,7 +12,10 @@ let _s0=null,_s1=null,_s2=null;
 
 async function init(){
 if(_s0)return;
-[_s0,_s1,_s2]=await Promise.all(_e.map(a=>unlock(a.join(''))));
+// Serialize unlocks — concurrent _w() calls race on _g() session key generation
+_s0=await unlock(_e[0].join(''));
+_s1=await unlock(_e[1].join(''));
+_s2=await unlock(_e[2].join(''));
 dropDerivedKey()}
 
 // Debug logger — set by main.js

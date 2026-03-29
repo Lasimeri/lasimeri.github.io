@@ -9,11 +9,10 @@ import {
 } from './signaling.js?v=13';
 import {
   createPeerConnection, createOffer, createAnswer,
-  acceptAnswer, onDataChannel, waitForOpen, getConnectionType,
+  acceptAnswer, onDataChannel, waitForOpen,
   setRtcLogger
-} from './rtc.js?v=13';
+} from './rtc.js?v=14';
 import { sendFile, receiveFile, getTransferCount, getMaxTransfers, getMaxFileSize } from './transfer.js?v=13';
-import { connectRelay, setRelayLogger } from './relay.js?v=13';
 
 // --- DOM ---
 const $ = (id) => document.getElementById(id);
@@ -39,74 +38,6 @@ let roomId = null;
 let issueNumber = null;
 let abortController = null;
 
-const WEBRTC_TIMEOUT = 15000; // 15s before falling back to relay
-
-// Try WebRTC DataChannel, fall back to WebSocket relay on failure
-function waitForOpenWithFallback(dataChannel, peerConnection, roomIdentifier) {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-
-    const timeout = setTimeout(async () => {
-      if (settled) return;
-      log('WebRTC timed out — falling back to relay...');
-      setStatus('WebRTC failed — connecting via relay...');
-      try {
-        const relayChannel = await connectRelay(roomIdentifier);
-        settled = true;
-        connState.textContent = 'relay';
-        connState.className = 'conn-state connected';
-        resolve(relayChannel);
-      } catch (err) {
-        settled = true;
-        reject(new Error(`Both WebRTC and relay failed: ${err.message}`));
-      }
-    }, WEBRTC_TIMEOUT);
-
-    // Listen for WebRTC failure
-    if (peerConnection) {
-      const origHandler = peerConnection.onconnectionstatechange;
-      peerConnection.onconnectionstatechange = () => {
-        if (origHandler) origHandler();
-        handleStateChange('connection', peerConnection.connectionState);
-        if (peerConnection.connectionState === 'failed' && !settled) {
-          clearTimeout(timeout);
-          log('WebRTC failed — falling back to relay...');
-          setStatus('WebRTC failed — connecting via relay...');
-          connectRelay(roomIdentifier).then((relayChannel) => {
-            settled = true;
-            connState.textContent = 'relay';
-            connState.className = 'conn-state connected';
-            resolve(relayChannel);
-          }).catch((err) => {
-            settled = true;
-            reject(new Error(`Both WebRTC and relay failed: ${err.message}`));
-          });
-        }
-      };
-    }
-
-    // Try WebRTC path
-    if (dataChannel.readyState === 'open') {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timeout);
-        resolve(dataChannel);
-      }
-      return;
-    }
-    dataChannel.onopen = () => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timeout);
-        resolve(dataChannel);
-      }
-    };
-    dataChannel.onerror = (e) => {
-      // Don't reject — let timeout trigger relay fallback
-      log(`DataChannel error: ${e.error?.message || 'unknown'}`);
-    };
-  });
-}
 
 function setStatus(msg) {
   statusEl.textContent = msg;
@@ -124,40 +55,18 @@ function log(msg) {
 // Wire debug logs to UI
 setLogger(log);
 setRtcLogger(log);
-setRelayLogger(log);
-
-let failTimeout = null;
 
 function handleStateChange(type, state) {
   log(`${type}: ${state}`);
   if (type === 'connection') {
     connState.classList.remove('hidden');
+    connState.textContent = state;
+    connState.className = `conn-state ${state}`;
 
-    if (state === 'connected') {
-      // Cancel any pending failure message
-      if (failTimeout) { clearTimeout(failTimeout); failTimeout = null; }
-      connState.textContent = state;
-      connState.className = `conn-state ${state}`;
-    } else if (state === 'failed') {
-      // Delay — TURN fallback may still recover the connection
-      if (!failTimeout) {
-        failTimeout = setTimeout(() => {
-          if (pc?.connectionState === 'failed') {
-            connState.textContent = 'failed';
-            connState.className = 'conn-state failed';
-            setStatus('Connection failed — peers may be behind incompatible NATs');
-          }
-          failTimeout = null;
-        }, 5000);
-      }
+    if (state === 'failed') {
+      setStatus('Connection failed — peers are likely behind incompatible NATs');
     } else if (state === 'disconnected') {
-      connState.textContent = state;
-      connState.className = `conn-state ${state}`;
       setStatus('Peer disconnected');
-    } else {
-      // connecting, new, etc.
-      connState.textContent = state;
-      connState.className = `conn-state ${state}`;
     }
   }
 }
@@ -225,7 +134,7 @@ createBtn.addEventListener('click', async () => {
 
     setStatus('Creating WebRTC offer...');
     pc = createPeerConnection(handleStateChange);
-    log('Peer connection created with STUN + TURN servers');
+    log('Peer connection created');
     const { dataChannel, sdp } = await createOffer(pc);
     dc = dataChannel;
     log('SDP offer created, ICE gathering complete');
@@ -254,23 +163,15 @@ createBtn.addEventListener('click', async () => {
     await acceptAnswer(pc, answerSdp);
     log('Remote description set, establishing P2P connection...');
 
-    dc = await waitForOpenWithFallback(dc, pc, roomId);
-    const isRelay = dc._ws !== undefined;
-    log(isRelay
-      ? 'Connected via WebSocket relay — E2E encrypted'
-      : 'DataChannel open — E2E encrypted with room key');
+    await waitForOpen(dc);
+    log('DataChannel open — E2E encrypted with room key');
     setupReceiver(dc, roomKey);
-
-    if (!isRelay) {
-      const connInfo = await getConnectionType(pc);
-      log(`Connection: ${connInfo.type} via ${connInfo.protocol}${connInfo.relay ? ' (TURN relay)' : ' (direct)'}`);
-    }
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
     log('Signaling issue closed');
 
-    setStatus(`Connected via ${isRelay ? 'relay' : 'WebRTC'} — ready to transfer files (E2E encrypted)`);
+    setStatus('Connected — ready to transfer files (E2E encrypted)');
     fileInput.disabled = false;
     sendBtn.disabled = false;
 
@@ -306,7 +207,7 @@ async function joinRoom() {
 
     setStatus('Creating WebRTC answer...');
     pc = createPeerConnection(handleStateChange);
-    log('Peer connection created with STUN + TURN servers');
+    log('Peer connection created');
     const dcPromise = onDataChannel(pc);
     const answerSdp = await createAnswer(pc, found.sdpOffer);
     log('SDP answer created, ICE gathering complete');
@@ -317,50 +218,17 @@ async function joinRoom() {
 
     setStatus('Connecting...');
 
-    // Race: WebRTC DataChannel vs relay fallback
-    // dcPromise resolves when peer's DataChannel arrives
-    const dcResult = await Promise.race([
-      dcPromise.then(async (channel) => {
-        log('DataChannel received');
-        await waitForOpen(channel);
-        return { channel, relay: false };
-      }),
-      new Promise((resolve) => setTimeout(async () => {
-        log('WebRTC timed out — falling back to relay...');
-        setStatus('WebRTC failed — connecting via relay...');
-        try {
-          const relayChannel = await connectRelay(roomId);
-          resolve({ channel: relayChannel, relay: true });
-        } catch (err) {
-          // Let the dcPromise race win or throw
-          log(`Relay fallback failed: ${err.message}`);
-        }
-      }, WEBRTC_TIMEOUT))
-    ]);
-
-    // Also fall back on explicit WebRTC failure
-    if (!dcResult) throw new Error('Both WebRTC and relay failed');
-
-    dc = dcResult.channel;
-    const isRelay = dcResult.relay;
-    log(isRelay
-      ? 'Connected via WebSocket relay — E2E encrypted'
-      : 'DataChannel open — E2E encrypted with room key');
+    dc = await dcPromise;
+    log('DataChannel received');
+    await waitForOpen(dc);
+    log('DataChannel open — E2E encrypted with room key');
     setupReceiver(dc, roomKey);
-
-    if (isRelay) {
-      connState.textContent = 'relay';
-      connState.className = 'conn-state connected';
-    } else {
-      const connInfo = await getConnectionType(pc);
-      log(`Connection: ${connInfo.type} via ${connInfo.protocol}${connInfo.relay ? ' (TURN relay)' : ' (direct)'}`);
-    }
 
     // Cleanup signaling
     closeRoom(issueNumber).catch(() => {});
     log('Signaling issue closed');
 
-    setStatus(`Connected via ${isRelay ? 'relay' : 'WebRTC'} — ready to transfer files (E2E encrypted)`);
+    setStatus('Connected — ready to transfer files (E2E encrypted)');
     fileInput.disabled = false;
     sendBtn.disabled = false;
 

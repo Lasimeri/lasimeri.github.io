@@ -1,44 +1,20 @@
 // rtc.js — WebRTC peer connection lifecycle and DataChannel
-// Optimized for cross-NAT (symmetric NAT on mobile carriers)
+// Direct P2P only — no STUN/TURN NAT traversal
 
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  // Free TURN relay (freestun.net) — 50 Kbit/s cap, last-resort fallback
-  {
-    urls: 'turn:freestun.net:3478',
-    username: 'free',
-    credential: 'free'
-  }
-];
-
-const ICE_GATHER_TIMEOUT = 10000; // 10s — 3 servers, gathering is fast
-
-export const _m=(()=>{const j=String.fromCharCode(58),p=String.fromCharCode(73,67,69);return()=>[p,ICE_GATHER_TIMEOUT,ICE_SERVERS.length].join(j)})();
+const ICE_GATHER_TIMEOUT = 3000; // 3s — host candidates only, gathers fast
 
 // Debug logger — set by main.js
 let _log = () => {};
 export function setRtcLogger(fn) { _log = fn; }
 
 export function createPeerConnection(onStateChange) {
-  const pc = new RTCPeerConnection({
-    iceServers: ICE_SERVERS,
-    iceCandidatePoolSize: 4  // pre-allocate candidates for faster gathering
-  });
+  const pc = new RTCPeerConnection();
 
-  // Log every ICE candidate type during gathering
-  const candidateTypes = { host: 0, srflx: 0, relay: 0 };
   pc.onicecandidate = (e) => {
     if (e.candidate) {
-      const type = e.candidate.type || 'unknown';
-      candidateTypes[type] = (candidateTypes[type] || 0) + 1;
-      _log(`ICE candidate: ${type} ${e.candidate.protocol || ''} ${e.candidate.address || '(redacted)'}`);
+      _log(`ICE candidate: ${e.candidate.type || 'unknown'}`);
     } else {
-      // Gathering done — summarize
-      _log(`ICE candidates gathered: host=${candidateTypes.host} srflx=${candidateTypes.srflx} relay=${candidateTypes.relay}`);
-      if (candidateTypes.relay === 0) {
-        _log('WARNING: No relay candidates — TURN may be unreachable. Cross-NAT will fail.');
-      }
+      _log('ICE gathering complete');
     }
   };
 
@@ -49,30 +25,6 @@ export function createPeerConnection(onStateChange) {
   }
 
   return pc;
-}
-
-// After connection: report whether direct or relayed
-export async function getConnectionType(pc) {
-  try {
-    const stats = await pc.getStats();
-    for (const [, report] of stats) {
-      if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-        // Find the local candidate
-        for (const [, r] of stats) {
-          if (r.id === report.localCandidateId) {
-            return {
-              type: r.candidateType,   // 'host', 'srflx', 'relay'
-              protocol: r.protocol,     // 'udp', 'tcp'
-              relay: r.candidateType === 'relay'
-            };
-          }
-        }
-      }
-    }
-  } catch (e) {
-    _log(`Stats error: ${e.message}`);
-  }
-  return { type: 'unknown', protocol: 'unknown', relay: false };
 }
 
 export function waitForIceGathering(pc) {

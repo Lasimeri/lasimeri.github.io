@@ -15,16 +15,14 @@ export function createPeerConnection(onStateChange) {
 
   pc.onicecandidate = (e) => {
     if (e.candidate) {
-      _log(`ICE candidate: ${e.candidate.type || 'unknown'}`);
+      _log(`candidate: ${e.candidate.type || 'unknown'}`);
     } else {
-      _log('ICE gathering complete');
+      _log('candidate discovery complete');
     }
   };
 
   if (onStateChange) {
     pc.onconnectionstatechange = () => onStateChange('connection', pc.connectionState);
-    pc.oniceconnectionstatechange = () => onStateChange('ice', pc.iceConnectionState);
-    pc.onicegatheringstatechange = () => onStateChange('gathering', pc.iceGatheringState);
   }
 
   return pc;
@@ -38,7 +36,7 @@ export function waitForIceGathering(pc) {
     }
 
     const timeout = setTimeout(() => {
-      _log('ICE gathering timed out — proceeding with partial candidates');
+      _log('candidate discovery timed out — proceeding with partial candidates');
       resolve();
     }, ICE_GATHER_TIMEOUT);
 

@@ -57,17 +57,16 @@ setLogger(log);
 setRtcLogger(log);
 
 function handleStateChange(type, state) {
-  log(`${type}: ${state}`);
-  if (type === 'connection') {
-    connState.classList.remove('hidden');
-    connState.textContent = state;
-    connState.className = `conn-state ${state}`;
+  if (type !== 'connection') return; // only surface connection state to user
+  log(`connection: ${state}`);
+  connState.classList.remove('hidden');
+  connState.textContent = state;
+  connState.className = `conn-state ${state}`;
 
-    if (state === 'failed') {
-      setStatus('Connection failed — peers are likely behind incompatible NATs');
-    } else if (state === 'disconnected') {
-      setStatus('Peer disconnected');
-    }
+  if (state === 'failed') {
+    setStatus('Connection failed — peers are likely behind incompatible NATs');
+  } else if (state === 'disconnected') {
+    setStatus('Peer disconnected');
   }
 }
 
@@ -137,7 +136,7 @@ createBtn.addEventListener('click', async () => {
     log('Peer connection created');
     const { dataChannel, sdp } = await createOffer(pc);
     dc = dataChannel;
-    log('SDP offer created, ICE gathering complete');
+    log('SDP offer created, candidate discovery complete');
 
     setStatus('Posting encrypted offer...');
     issueNumber = await createRoom(roomId, sdp, roomKey);
@@ -210,7 +209,7 @@ async function joinRoom() {
     log('Peer connection created');
     const dcPromise = onDataChannel(pc);
     const answerSdp = await createAnswer(pc, found.sdpOffer);
-    log('SDP answer created, ICE gathering complete');
+    log('SDP answer created, candidate discovery complete');
 
     setStatus('Posting encrypted answer...');
     await postAnswer(issueNumber, answerSdp, roomKey);

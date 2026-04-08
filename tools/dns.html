@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dns — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 400; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    input { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; font: inherit; font-size: 0.75rem; outline: none; }
+    input:focus { border-color: var(--accent); }
+    select { background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; font: inherit; font-size: 0.75rem; outline: none; cursor: pointer; }
+    select:focus { border-color: var(--accent); }
+    button { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.8rem; font: inherit; font-size: 0.7rem; cursor: pointer; white-space: nowrap; }
+    button:hover { border-color: var(--text); }
+    pre { background: var(--surface); border: 1px solid var(--border); padding: 0.8rem; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .error { color: #944; font-size: 0.75rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / dns</h1>
+    <div class="subtitle">dns lookup via cloudflare doh</div>
+    <div class="row">
+      <input type="text" id="domain" placeholder="example.com" autofocus>
+      <select id="type">
+        <option>A</option><option>AAAA</option><option>MX</option><option>TXT</option><option>CNAME</option><option>NS</option><option>SOA</option>
+      </select>
+      <button id="btn" onclick="lookup()">lookup</button>
+    </div>
+    <div id="result"></div>
+    <div id="error"></div>
+  </div>
+  <script>
+    const WORKER = 'https://crystal.seaofglass.workers.dev';
+    document.getElementById('domain').addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+    async function lookup() {
+      const domain = document.getElementById('domain').value.trim();
+      const type = document.getElementById('type').value;
+      const errEl = document.getElementById('error');
+      const resEl = document.getElementById('result');
+      errEl.textContent = '';
+      resEl.innerHTML = '';
+      if (!domain) { errEl.textContent = 'enter a domain'; return; }
+      document.getElementById('btn').textContent = '...';
+      try {
+        const res = await fetch(`${WORKER}/s/dns/${type}/${encodeURIComponent(domain)}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        resEl.innerHTML = `<pre>${esc(JSON.stringify(data, null, 2))}</pre>`;
+      } catch (e) {
+        errEl.textContent = e.message;
+      } finally {
+        document.getElementById('btn').textContent = 'lookup';
+      }
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  </script>
+</body>
+</html>

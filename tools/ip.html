@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ip — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 400; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .ip-display { font-size: 2rem; color: var(--text); margin: 2rem 0; text-align: center; letter-spacing: 0.05em; }
+    .error { color: #944; font-size: 0.75rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / ip</h1>
+    <div class="subtitle">your ip address</div>
+    <div class="ip-display" id="ip">...</div>
+    <div id="error"></div>
+  </div>
+  <script>
+    const WORKER = 'https://crystal.seaofglass.workers.dev';
+    (async () => {
+      try {
+        const res = await fetch(`${WORKER}/s/ip`);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        document.getElementById('ip').textContent = await res.text();
+      } catch (e) {
+        document.getElementById('ip').textContent = '—';
+        document.getElementById('error').textContent = e.message;
+      }
+    })();
+  </script>
+</body>
+</html>

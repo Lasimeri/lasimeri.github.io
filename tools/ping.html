@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ping — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 400; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    input { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; font: inherit; font-size: 0.75rem; outline: none; }
+    input:focus { border-color: var(--accent); }
+    button { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.8rem; font: inherit; font-size: 0.7rem; cursor: pointer; white-space: nowrap; }
+    button:hover { border-color: var(--text); }
+    .summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.75rem; }
+    .summary .label { color: var(--text-dim); font-size: 0.65rem; }
+    .summary .value { margin-top: 0.2rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); font-size: 0.75rem; }
+    th, td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-dim); font-weight: 400; font-size: 0.65rem; }
+    td:first-child { color: var(--text-dim); white-space: nowrap; }
+    .error { color: #944; font-size: 0.75rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / ping</h1>
+    <div class="subtitle">http ping with timing</div>
+    <div class="row">
+      <input type="text" id="url" placeholder="https://example.com" autofocus>
+      <button id="btn" onclick="ping()">ping</button>
+    </div>
+    <div id="result"></div>
+    <div id="error"></div>
+  </div>
+  <script>
+    const WORKER = 'https://crystal.seaofglass.workers.dev';
+    document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') ping(); });
+    async function ping() {
+      const target = document.getElementById('url').value.trim();
+      const errEl = document.getElementById('error');
+      const resEl = document.getElementById('result');
+      errEl.textContent = '';
+      resEl.innerHTML = '';
+      if (!target) { errEl.textContent = 'enter a url'; return; }
+      document.getElementById('btn').textContent = '...';
+      try {
+        const res = await fetch(`${WORKER}/s/ping/${encodeURIComponent(target)}`);
+        const data = await res.json();
+        if (data.error) {
+          resEl.innerHTML = `<div class="summary"><div><div class="label">url</div><div class="value">${esc(data.url)}</div></div><div><div class="label">error</div><div class="value" style="color:#944">${esc(data.error)}</div></div></div>`;
+          return;
+        }
+        let html = `<div class="summary"><div><div class="label">status</div><div class="value">${data.status}</div></div><div><div class="label">time</div><div class="value">${data.time_ms}ms</div></div><div><div class="label">url</div><div class="value">${esc(data.url)}</div></div></div>`;
+        if (data.headers) {
+          const keys = Object.keys(data.headers).sort();
+          html += '<table><tr><th>header</th><th>value</th></tr>';
+          for (const k of keys) html += `<tr><td>${esc(k)}</td><td>${esc(data.headers[k])}</td></tr>`;
+          html += '</table>';
+        }
+        resEl.innerHTML = html;
+      } catch (e) {
+        errEl.textContent = e.message;
+      } finally {
+        document.getElementById('btn').textContent = 'ping';
+      }
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  </script>
+</body>
+</html>

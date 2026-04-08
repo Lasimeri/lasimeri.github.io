@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tmp — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 400; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .row { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; }
+    input[type="text"] { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; font: inherit; font-size: 0.75rem; outline: none; }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="file"] { font: inherit; font-size: 0.7rem; color: var(--text-dim); }
+    input[type="file"]::file-selector-button { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.8rem; font: inherit; font-size: 0.7rem; cursor: pointer; margin-right: 0.5rem; }
+    input[type="file"]::file-selector-button:hover { border-color: var(--text); }
+    button { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.8rem; font: inherit; font-size: 0.7rem; cursor: pointer; white-space: nowrap; }
+    button:hover { border-color: var(--text); }
+    .result-box { background: var(--surface); border: 1px solid var(--border); padding: 0.8rem; font-size: 0.75rem; margin-bottom: 1rem; }
+    .result-box .url { word-break: break-all; margin-bottom: 0.3rem; }
+    .result-box .meta { color: var(--text-dim); font-size: 0.65rem; }
+    .sep { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    .section-label { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.75rem; }
+    .error { color: #944; font-size: 0.75rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / tmp</h1>
+    <div class="subtitle">temp file drop — expires in 1 hour, 10mb max</div>
+
+    <div class="row">
+      <input type="file" id="file">
+      <button id="btn-upload" onclick="upload()">upload</button>
+    </div>
+    <div id="upload-result"></div>
+    <div id="upload-error" class="error"></div>
+
+    <hr class="sep">
+
+    <div class="section-label">download a tmp file</div>
+    <div class="row">
+      <input type="text" id="tmp-url" placeholder="paste tmp url or id">
+      <button onclick="download()">download</button>
+    </div>
+    <div id="dl-error" class="error"></div>
+  </div>
+  <script>
+    const WORKER = 'https://crystal.seaofglass.workers.dev';
+
+    async function upload() {
+      const fileInput = document.getElementById('file');
+      const errEl = document.getElementById('upload-error');
+      const resEl = document.getElementById('upload-result');
+      errEl.textContent = '';
+      resEl.innerHTML = '';
+      if (!fileInput.files || !fileInput.files[0]) { errEl.textContent = 'select a file'; return; }
+      const file = fileInput.files[0];
+      document.getElementById('btn-upload').textContent = '...';
+      try {
+        const res = await fetch(`${WORKER}/s/tmp`, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const expiry = new Date(data.expires).toLocaleTimeString();
+        resEl.innerHTML = `<div class="result-box"><div class="url">${esc(data.url)}</div><div class="meta">expires at ${expiry}</div><div style="margin-top:0.5rem;display:flex;gap:0.5rem;"><button onclick="copyUrl('${esc(data.url)}', this)">copy url</button><a href="${esc(data.url)}" target="_blank" style="color:var(--text);font-size:0.7rem;border:1px solid var(--border);padding:0.3rem 0.8rem;text-decoration:none;">open</a></div></div>`;
+      } catch (e) {
+        errEl.textContent = e.message;
+      } finally {
+        document.getElementById('btn-upload').textContent = 'upload';
+      }
+    }
+
+    function download() {
+      const input = document.getElementById('tmp-url').value.trim();
+      const errEl = document.getElementById('dl-error');
+      errEl.textContent = '';
+      if (!input) { errEl.textContent = 'paste a url or id'; return; }
+      let url;
+      if (input.startsWith('http')) {
+        url = input;
+      } else {
+        url = `${WORKER}/s/tmp/${encodeURIComponent(input)}`;
+      }
+      window.open(url, '_blank');
+    }
+
+    async function copyUrl(url, btn) {
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent = 'copied';
+        setTimeout(() => btn.textContent = 'copy url', 1500);
+      } catch {
+        btn.textContent = 'failed';
+        setTimeout(() => btn.textContent = 'copy url', 1500);
+      }
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  </script>
+</body>
+</html>

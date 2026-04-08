@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>whois — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 400; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    input { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; font: inherit; font-size: 0.75rem; outline: none; }
+    input:focus { border-color: var(--accent); }
+    button { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.8rem; font: inherit; font-size: 0.7rem; cursor: pointer; white-space: nowrap; }
+    button:hover { border-color: var(--text); }
+    .info { background: var(--surface); border: 1px solid var(--border); padding: 0.8rem; font-size: 0.75rem; margin-bottom: 1rem; }
+    .info .row-item { display: flex; margin-bottom: 0.4rem; }
+    .info .label { color: var(--text-dim); min-width: 120px; flex-shrink: 0; }
+    .info .value { word-break: break-all; }
+    details { margin-top: 0.5rem; }
+    summary { cursor: pointer; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+    summary:hover { color: var(--text); }
+    pre { background: var(--surface); border: 1px solid var(--border); padding: 0.8rem; font-size: 0.7rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; }
+    .error { color: #944; font-size: 0.75rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / whois</h1>
+    <div class="subtitle">rdap domain lookup</div>
+    <div class="row">
+      <input type="text" id="domain" placeholder="example.com" autofocus>
+      <button id="btn" onclick="lookup()">lookup</button>
+    </div>
+    <div id="result"></div>
+    <div id="error"></div>
+  </div>
+  <script>
+    const WORKER = 'https://crystal.seaofglass.workers.dev';
+    document.getElementById('domain').addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+    async function lookup() {
+      const domain = document.getElementById('domain').value.trim();
+      const errEl = document.getElementById('error');
+      const resEl = document.getElementById('result');
+      errEl.textContent = '';
+      resEl.innerHTML = '';
+      if (!domain) { errEl.textContent = 'enter a domain'; return; }
+      document.getElementById('btn').textContent = '...';
+      try {
+        const res = await fetch(`${WORKER}/s/whois/${encodeURIComponent(domain)}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const name = data.ldhName || data.handle || domain;
+        const registrar = extractRegistrar(data);
+        const created = extractEvent(data, 'registration');
+        const expiry = extractEvent(data, 'expiration');
+        const nameservers = (data.nameservers || []).map(ns => ns.ldhName || ns.unicodeName || '').filter(Boolean);
+        const status = data.status || [];
+
+        let html = '<div class="info">';
+        html += row('domain', name);
+        if (registrar) html += row('registrar', registrar);
+        if (created) html += row('created', created);
+        if (expiry) html += row('expires', expiry);
+        if (nameservers.length) html += row('nameservers', nameservers.join(', '));
+        if (status.length) html += row('status', status.join(', '));
+        html += '</div>';
+        html += `<details><summary>raw rdap json</summary><pre>${esc(JSON.stringify(data, null, 2))}</pre></details>`;
+        resEl.innerHTML = html;
+      } catch (e) {
+        errEl.textContent = e.message;
+      } finally {
+        document.getElementById('btn').textContent = 'lookup';
+      }
+    }
+    function extractRegistrar(data) {
+      if (!data.entities) return null;
+      for (const ent of data.entities) {
+        if (ent.roles && ent.roles.includes('registrar')) {
+          if (ent.vcardArray && ent.vcardArray[1]) {
+            for (const field of ent.vcardArray[1]) {
+              if (field[0] === 'fn') return field[3];
+            }
+          }
+          return ent.handle || null;
+        }
+      }
+      return null;
+    }
+    function extractEvent(data, type) {
+      if (!data.events) return null;
+      for (const ev of data.events) {
+        if (ev.eventAction === type) return ev.eventDate;
+      }
+      return null;
+    }
+    function row(label, value) {
+      return `<div class="row-item"><div class="label">${label}</div><div class="value">${esc(String(value))}</div></div>`;
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  </script>
+</body>
+</html>

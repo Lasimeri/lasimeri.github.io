@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>headers — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; font-weight: 400; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); font-size: 0.75rem; }
+    th, td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-dim); font-weight: 400; font-size: 0.65rem; letter-spacing: 0.05em; }
+    td:first-child { color: var(--text-dim); white-space: nowrap; }
+    tr.cf td:first-child { color: var(--accent); }
+    tr.cf td { color: var(--accent); }
+    .error { color: #944; font-size: 0.75rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / headers</h1>
+    <div class="subtitle">your request headers</div>
+    <div id="result"></div>
+    <div id="error"></div>
+  </div>
+  <script>
+    const WORKER = 'https://crystal.seaofglass.workers.dev';
+    (async () => {
+      try {
+        const res = await fetch(`${WORKER}/s/headers`);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const headers = await res.json();
+        const keys = Object.keys(headers).sort();
+        let html = '<table><tr><th>header</th><th>value</th></tr>';
+        for (const k of keys) {
+          const isCf = k.toLowerCase().startsWith('cf-') || k.toLowerCase().startsWith('x-forwarded');
+          html += `<tr class="${isCf ? 'cf' : ''}"><td>${esc(k)}</td><td>${esc(headers[k])}</td></tr>`;
+        }
+        html += '</table>';
+        document.getElementById('result').innerHTML = html;
+      } catch (e) {
+        document.getElementById('error').textContent = e.message;
+      }
+    })();
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  </script>
+</body>
+</html>

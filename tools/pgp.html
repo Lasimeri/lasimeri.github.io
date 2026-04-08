@@ -128,7 +128,7 @@
 
   <script>
     // Non-module script so we can catch all errors visibly
-    let _init, _pgp_keygen, _pgp_encrypt, _pgp_decrypt, _pgp_fingerprint;
+    let _init, _pgp_keygen, _pgp_encrypt, _pgp_decrypt, _pgp_fingerprint, _wasmBytes;
     let wasmReady = false;
 
     async function loadWasmModule() {
@@ -138,6 +138,8 @@
       _pgp_encrypt = mod.pgp_encrypt;
       _pgp_decrypt = mod.pgp_decrypt;
       _pgp_fingerprint = mod.pgp_fingerprint;
+      // Pre-fetch WASM as ArrayBuffer to avoid instantiateStreaming issues
+      _wasmBytes = await fetch('/pgp/wasm/pkg/glass_pgp_bg.wasm').then(function(r) { return r.arrayBuffer(); });
     }
 
     async function ensureWasm() {
@@ -147,8 +149,8 @@
         document.getElementById('loading-text').textContent = 'loading pgp module...';
         await loadWasmModule();
         document.getElementById('loading-text').textContent = 'compiling wasm (1.5MB)...';
-        // Race against a timeout to detect hangs
-        const initPromise = _init();
+        // Pass pre-fetched bytes to avoid instantiateStreaming issues
+        const initPromise = _init({ module_or_path: _wasmBytes });
         const timeout = new Promise(function(_, reject) {
           setTimeout(function() { reject(new Error('wasm init timed out after 30s')); }, 30000);
         });

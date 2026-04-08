@@ -7,15 +7,7 @@ use pgp::composed::{
 use pgp::crypto::{sym::SymmetricKeyAlgorithm, hash::HashAlgorithm};
 use pgp::types::{CompressionAlgorithm, Password, KeyDetails};
 use rand::thread_rng;
-use serde::Serialize;
 use smallvec::smallvec;
-
-#[derive(Serialize)]
-struct KeyPairResult {
-    public: String,
-    secret: String,
-    fingerprint: String,
-}
 
 #[wasm_bindgen]
 pub fn pgp_keygen(name: &str, email: &str, passphrase: &str) -> Result<String, JsError> {
@@ -68,13 +60,13 @@ pub fn pgp_keygen(name: &str, email: &str, passphrase: &str) -> Result<String, J
         .to_armored_string(ArmorOptions::default())
         .map_err(|e| JsError::new(&format!("armor sec: {e}")))?;
 
-    let result = KeyPairResult {
-        public: pub_armored,
-        secret: sec_armored,
-        fingerprint: fp,
-    };
-
-    serde_json::to_string(&result).map_err(|e| JsError::new(&format!("json: {e}")))
+    fn json_escape(s: &str) -> String {
+        s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n").replace('\r', "\\r")
+    }
+    Ok(format!(
+        r#"{{"public":"{}","secret":"{}","fingerprint":"{}"}}"#,
+        json_escape(&pub_armored), json_escape(&sec_armored), fp
+    ))
 }
 
 #[wasm_bindgen]

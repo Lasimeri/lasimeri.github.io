@@ -440,7 +440,6 @@ export default {
   const _WebSocket = window.WebSocket;
   if (_WebSocket) {
     window.WebSocket = function(url, protocols) {
-      // Can't proxy WebSockets yet — let them connect directly
       return new _WebSocket(url, protocols);
     };
     window.WebSocket.prototype = _WebSocket.prototype;
@@ -449,6 +448,73 @@ export default {
     window.WebSocket.CLOSING = _WebSocket.CLOSING;
     window.WebSocket.CLOSED = _WebSocket.CLOSED;
   }
+
+  // Rewrite src/href on any element that appears in the DOM (catches shadow DOM, web components)
+  function rewriteNode(node) {
+    if (node.nodeType !== 1) return;
+    const el = node;
+    for (const attr of ['src', 'href', 'action', 'poster']) {
+      const val = el.getAttribute(attr);
+      if (val && (val.startsWith('http') || val.startsWith('//'))) {
+        const rw = _rewrite(val);
+        if (rw !== val) _setAttribute.call(el, attr, rw);
+      }
+    }
+    // Rewrite background-image inline styles
+    const style = el.getAttribute('style');
+    if (style && style.includes('url(')) {
+      const fixed = style.replace(/url\\(\\s*['"]?((?:https?:)?\\/\\/[^'"\\)]+)['"]?\\s*\\)/gi, function(m, u) {
+        return 'url(' + _rewrite(u.startsWith('//') ? 'https:' + u : u) + ')';
+      });
+      if (fixed !== style) _setAttribute.call(el, 'style', fixed);
+    }
+    // Recurse into shadow DOM
+    if (el.shadowRoot) {
+      el.shadowRoot.querySelectorAll('[src],[href],[poster]').forEach(rewriteNode);
+    }
+  }
+
+  // MutationObserver: catch dynamically added elements
+  const observer = new MutationObserver(function(mutations) {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        rewriteNode(node);
+        if (node.querySelectorAll) {
+          node.querySelectorAll('[src],[href],[poster],[style*="url"]').forEach(rewriteNode);
+        }
+      }
+    }
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Intercept attachShadow to observe shadow roots
+  const _attachShadow = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function(opts) {
+    const shadow = _attachShadow.call(this, opts);
+    const shadowObserver = new MutationObserver(function(mutations) {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          rewriteNode(node);
+          if (node.querySelectorAll) {
+            node.querySelectorAll('[src],[href],[poster],[style*="url"]').forEach(rewriteNode);
+          }
+        }
+      }
+    });
+    shadowObserver.observe(shadow, { childList: true, subtree: true });
+    return shadow;
+  };
+
+  // Intercept CSSStyleDeclaration.setProperty for background-image
+  const _setProperty = CSSStyleDeclaration.prototype.setProperty;
+  CSSStyleDeclaration.prototype.setProperty = function(prop, value, priority) {
+    if (typeof value === 'string' && value.includes('url(')) {
+      value = value.replace(/url\\(\\s*['"]?((?:https?:)?\\/\\/[^'"\\)]+)['"]?\\s*\\)/gi, function(m, u) {
+        return 'url(' + _rewrite(u.startsWith('//') ? 'https:' + u : u) + ')';
+      });
+    }
+    return _setProperty.call(this, prop, value, priority);
+  };
 })();
 </script>`;
 

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pgp — sea of glass</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root { --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem; }
+    .container { max-width: 750px; margin: 0 auto; }
+    h1 { font-size: 1rem; font-weight: 400; margin-bottom: 0.25rem; }
+    h1 a { color: var(--text-dim); text-decoration: none; }
+    h1 a:hover { color: var(--text); }
+    .subtitle { font-size: 0.65rem; color: var(--text-dim); opacity: 0.6; margin-bottom: 1.5rem; }
+    .tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .tab { padding: 0.4rem 1rem; font: inherit; font-size: 0.7rem; color: var(--text-dim); background: none; border: 1px solid var(--border); border-bottom: none; cursor: pointer; margin-bottom: -1px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); background: var(--surface); border-bottom-color: var(--surface); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .section-title { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    input, textarea { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; font: inherit; font-size: 0.75rem; outline: none; margin-bottom: 0.5rem; }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    textarea { height: 20vh; resize: vertical; font-size: 0.7rem; }
+    .row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .row input { margin-bottom: 0; }
+    button { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.8rem; font: inherit; font-size: 0.7rem; cursor: pointer; }
+    button:hover { border-color: var(--text); }
+    button:disabled { opacity: 0.3; cursor: default; }
+    .status { font-size: 0.65rem; color: var(--text-dim); margin: 0.5rem 0; }
+    .result { background: var(--surface); border: 1px solid var(--border); padding: 0.8rem; font-size: 0.65rem; white-space: pre-wrap; word-break: break-all; margin: 0.5rem 0; max-height: 40vh; overflow-y: auto; }
+    .fp { font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.1em; margin: 0.5rem 0; }
+    .warn { font-size: 0.6rem; color: #fbbf24; margin-bottom: 0.5rem; }
+    .actions { display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    .hidden { display: none; }
+    .loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,10,15,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; flex-direction: column; }
+    .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">glass</a> / pgp</h1>
+    <p class="subtitle">OpenPGP key generation, encryption, and decryption — all client-side via WASM</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('keygen')">generate keys</button>
+      <button class="tab" onclick="showTab('encrypt')">encrypt</button>
+      <button class="tab" onclick="showTab('decrypt')">decrypt</button>
+    </div>
+
+    <!-- KEYGEN -->
+    <div id="keygen" class="panel active">
+      <div class="section-title">generate RSA-4096 keypair</div>
+      <div class="row">
+        <input type="text" id="kg-name" placeholder="name">
+        <input type="email" id="kg-email" placeholder="email">
+      </div>
+      <input type="password" id="kg-pass" placeholder="passphrase (protects private key)">
+      <div class="actions">
+        <button id="kg-btn" onclick="keygen()">generate keypair</button>
+      </div>
+      <div class="status" id="kg-status"></div>
+      <div id="kg-result" class="hidden">
+        <div class="fp" id="kg-fp"></div>
+        <div class="section-title">public key</div>
+        <div class="result" id="kg-pub"></div>
+        <div class="actions">
+          <button onclick="copyEl('kg-pub')">copy public key</button>
+          <button onclick="downloadText('kg-pub', 'public-key.asc')">download</button>
+        </div>
+        <div class="section-title">private key</div>
+        <div class="warn">save this securely — it will not be stored or displayed again</div>
+        <div class="actions">
+          <button onclick="downloadText('kg-sec', 'private-key.asc')">download private key</button>
+        </div>
+        <div class="result hidden" id="kg-sec"></div>
+      </div>
+    </div>
+
+    <!-- ENCRYPT -->
+    <div id="encrypt" class="panel">
+      <div class="section-title">encrypt message</div>
+      <textarea id="enc-pubkey" placeholder="paste recipient's public key (armored)..." rows="6"></textarea>
+      <textarea id="enc-msg" placeholder="message to encrypt..."></textarea>
+      <div class="actions">
+        <button onclick="encrypt()">encrypt</button>
+      </div>
+      <div class="status" id="enc-status"></div>
+      <div id="enc-result" class="hidden">
+        <div class="section-title">encrypted message</div>
+        <div class="result" id="enc-out"></div>
+        <div class="actions">
+          <button onclick="copyEl('enc-out')">copy</button>
+          <button onclick="downloadText('enc-out', 'message.pgp')">download</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DECRYPT -->
+    <div id="decrypt" class="panel">
+      <div class="section-title">decrypt message</div>
+      <textarea id="dec-seckey" placeholder="paste your private key (armored)..." rows="6"></textarea>
+      <input type="password" id="dec-pass" placeholder="private key passphrase">
+      <textarea id="dec-msg" placeholder="paste encrypted message..."></textarea>
+      <div class="actions">
+        <button onclick="decrypt()">decrypt</button>
+      </div>
+      <div class="status" id="dec-status"></div>
+      <div id="dec-result" class="hidden">
+        <div class="section-title">decrypted message</div>
+        <div class="result" id="dec-out"></div>
+        <div class="actions">
+          <button onclick="copyEl('dec-out')">copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading hidden" id="loading">
+    <div class="spinner"></div>
+    <div class="status" id="loading-text">loading wasm...</div>
+  </div>
+
+  <script type="module">
+    import init, { pgp_keygen, pgp_encrypt, pgp_decrypt, pgp_fingerprint } from '../pgp/wasm/pkg/glass_pgp.js';
+
+    let wasmReady = false;
+    async function ensureWasm() {
+      if (wasmReady) return;
+      show('loading');
+      document.getElementById('loading-text').textContent = 'loading pgp wasm...';
+      await init();
+      wasmReady = true;
+      hide('loading');
+    }
+
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    window.showTab = function(name) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(name).classList.add('active');
+      event.target.classList.add('active');
+    };
+
+    window.copyEl = function(id) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent);
+    };
+
+    window.downloadText = function(id, filename) {
+      const text = document.getElementById(id).textContent;
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    window.keygen = async function() {
+      const name = document.getElementById('kg-name').value.trim();
+      const email = document.getElementById('kg-email').value.trim();
+      const pass = document.getElementById('kg-pass').value;
+      if (!name || !email) { document.getElementById('kg-status').textContent = 'name and email required'; return; }
+      if (!pass) { document.getElementById('kg-status').textContent = 'passphrase required'; return; }
+
+      document.getElementById('kg-btn').disabled = true;
+      show('loading');
+      document.getElementById('loading-text').textContent = 'generating RSA-4096 keypair — this takes 30-60s...';
+
+      try {
+        await ensureWasm();
+        hide('loading');
+        show('loading');
+        document.getElementById('loading-text').textContent = 'generating RSA-4096 keypair...';
+
+        // Run in a microtask to let the UI update
+        await new Promise(r => setTimeout(r, 50));
+        const result = JSON.parse(pgp_keygen(name, email, pass));
+
+        document.getElementById('kg-pub').textContent = result.public;
+        document.getElementById('kg-sec').textContent = result.secret;
+        document.getElementById('kg-fp').textContent = 'fingerprint: ' + result.fingerprint;
+        show('kg-result');
+        document.getElementById('kg-status').textContent = 'keypair generated';
+
+        // Auto-download private key
+        const blob = new Blob([result.secret], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'private-key.asc';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        document.getElementById('kg-status').textContent = 'error: ' + e.message;
+      }
+      hide('loading');
+      document.getElementById('kg-btn').disabled = false;
+    };
+
+    window.encrypt = async function() {
+      const pubkey = document.getElementById('enc-pubkey').value.trim();
+      const msg = document.getElementById('enc-msg').value;
+      if (!pubkey || !msg) { document.getElementById('enc-status').textContent = 'public key and message required'; return; }
+
+      try {
+        await ensureWasm();
+        document.getElementById('enc-status').textContent = 'encrypting...';
+        await new Promise(r => setTimeout(r, 50));
+
+        const encrypted = pgp_encrypt(new TextEncoder().encode(msg), pubkey);
+        document.getElementById('enc-out').textContent = new TextDecoder().decode(encrypted);
+        show('enc-result');
+        document.getElementById('enc-status').textContent = 'encrypted';
+      } catch (e) {
+        document.getElementById('enc-status').textContent = 'error: ' + e.message;
+      }
+    };
+
+    window.decrypt = async function() {
+      const seckey = document.getElementById('dec-seckey').value.trim();
+      const pass = document.getElementById('dec-pass').value;
+      const msg = document.getElementById('dec-msg').value.trim();
+      if (!seckey || !msg) { document.getElementById('dec-status').textContent = 'private key and message required'; return; }
+
+      try {
+        await ensureWasm();
+        document.getElementById('dec-status').textContent = 'decrypting...';
+        await new Promise(r => setTimeout(r, 50));
+
+        const decrypted = pgp_decrypt(new TextEncoder().encode(msg), seckey, pass);
+        document.getElementById('dec-out').textContent = new TextDecoder().decode(decrypted);
+        show('dec-result');
+        document.getElementById('dec-status').textContent = 'decrypted';
+      } catch (e) {
+        document.getElementById('dec-status').textContent = 'error: ' + e.message;
+      }
+    };
+
+    // Preload WASM on page load
+    ensureWasm().catch(() => {});
+  </script>
+</body>
+</html>

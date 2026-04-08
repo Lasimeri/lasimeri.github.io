@@ -1,0 +1,15 @@
+{
+  "name": "glass-pgp",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "glass_pgp_bg.wasm",
+    "glass_pgp.js",
+    "glass_pgp.d.ts"
+  ],
+  "main": "glass_pgp.js",
+  "types": "glass_pgp.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

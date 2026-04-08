@@ -316,6 +316,20 @@ export default {
 					return new Response(proxyRes.body, { headers: h });
 				}
 
+				// Extract nonce from the response for script injection
+				// YouTube (and other sites) use CSP nonces — our injected script needs the same nonce
+				const htmlBytes = await proxyRes.arrayBuffer();
+				const htmlText = new TextDecoder().decode(htmlBytes);
+				const nonceMatch = htmlText.match(/nonce="([^"]+)"/);
+				const nonce = nonceMatch ? nonceMatch[1] : '';
+				const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
+
+				// Rebuild response from the buffered HTML
+				const bufferedResponse = new Response(htmlText, {
+					status: proxyRes.status,
+					headers: proxyRes.headers,
+				});
+
 				// HTML: rewrite URLs with HTMLRewriter + inject JS shim
 				const resolveUrl = (relative: string) => {
 					try {
@@ -329,7 +343,7 @@ export default {
 				};
 
 				// JS shim injected into <head> to intercept dynamic requests
-				const jsShim = `<script>
+				const jsShim = `<script${nonceAttr}>
 (function(){
   const _pbase = ${JSON.stringify(proxyBase)};
   const _torigin = ${JSON.stringify(targetOrigin)};
@@ -624,13 +638,13 @@ export default {
 						},
 					});
 
-				const transformed = rewriter.transform(proxyRes);
+				const transformed = rewriter.transform(bufferedResponse);
 
 				const h = new Headers();
 				h.set('Content-Type', 'text/html; charset=utf-8');
 				h.set('Access-Control-Allow-Origin', '*');
-				// Remove frame-busting headers
-				// (proxyRes headers are NOT forwarded — we build clean headers)
+				// Explicitly exclude security headers that break proxied content
+				// CSP, X-Frame-Options, etc. are NOT forwarded
 
 				return new Response(transformed.body, { headers: h });
 

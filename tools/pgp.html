@@ -48,9 +48,9 @@
     <p class="subtitle">OpenPGP key generation, encryption, and decryption — all client-side via WASM</p>
 
     <div class="tabs">
-      <button class="tab active" onclick="showTab('keygen')">generate keys</button>
-      <button class="tab" onclick="showTab('encrypt')">encrypt</button>
-      <button class="tab" onclick="showTab('decrypt')">decrypt</button>
+      <button class="tab active" onclick="showTab('keygen',this)">generate keys</button>
+      <button class="tab" onclick="showTab('encrypt',this)">encrypt</button>
+      <button class="tab" onclick="showTab('decrypt',this)">decrypt</button>
     </div>
 
     <!-- KEYGEN -->
@@ -126,15 +126,27 @@
     <div class="status" id="loading-text">loading wasm...</div>
   </div>
 
-  <script type="module">
-    import init, { pgp_keygen, pgp_encrypt, pgp_decrypt, pgp_fingerprint } from '../pgp/wasm/pkg/glass_pgp.js';
-
+  <script>
+    // Non-module script so we can catch all errors visibly
+    let _init, _pgp_keygen, _pgp_encrypt, _pgp_decrypt, _pgp_fingerprint;
     let wasmReady = false;
+
+    async function loadWasmModule() {
+      const mod = await import('/pgp/wasm/pkg/glass_pgp.js');
+      _init = mod.default;
+      _pgp_keygen = mod.pgp_keygen;
+      _pgp_encrypt = mod.pgp_encrypt;
+      _pgp_decrypt = mod.pgp_decrypt;
+      _pgp_fingerprint = mod.pgp_fingerprint;
+    }
+
     async function ensureWasm() {
       if (wasmReady) return;
       show('loading');
-      document.getElementById('loading-text').textContent = 'loading pgp wasm...';
-      await init();
+      document.getElementById('loading-text').textContent = 'loading pgp wasm module...';
+      await loadWasmModule();
+      document.getElementById('loading-text').textContent = 'initializing wasm...';
+      await _init();
       wasmReady = true;
       hide('loading');
     }
@@ -142,18 +154,18 @@
     function show(id) { document.getElementById(id).classList.remove('hidden'); }
     function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
-    window.showTab = function(name) {
+    function showTab(name, btn) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.getElementById(name).classList.add('active');
-      event.target.classList.add('active');
-    };
+      btn.classList.add('active');
+    }
 
-    window.copyEl = function(id) {
+    function copyEl(id) {
       navigator.clipboard.writeText(document.getElementById(id).textContent);
     };
 
-    window.downloadText = function(id, filename) {
+    function downloadText(id, filename) {
       const text = document.getElementById(id).textContent;
       const blob = new Blob([text], { type: 'text/plain' });
       const a = document.createElement('a');
@@ -163,7 +175,7 @@
       URL.revokeObjectURL(a.href);
     };
 
-    window.keygen = async function() {
+    async function keygen() {
       const name = document.getElementById('kg-name').value.trim();
       const email = document.getElementById('kg-email').value.trim();
       const pass = document.getElementById('kg-pass').value;
@@ -182,7 +194,7 @@
 
         // Run in a microtask to let the UI update
         await new Promise(r => setTimeout(r, 50));
-        const result = JSON.parse(pgp_keygen(name, email, pass));
+        const result = JSON.parse(_pgp_keygen(name, email, pass));
 
         document.getElementById('kg-pub').textContent = result.public;
         document.getElementById('kg-sec').textContent = result.secret;
@@ -204,7 +216,7 @@
       document.getElementById('kg-btn').disabled = false;
     };
 
-    window.encrypt = async function() {
+    async function encrypt() {
       const pubkey = document.getElementById('enc-pubkey').value.trim();
       const msg = document.getElementById('enc-msg').value;
       if (!pubkey || !msg) { document.getElementById('enc-status').textContent = 'public key and message required'; return; }
@@ -214,7 +226,7 @@
         document.getElementById('enc-status').textContent = 'encrypting...';
         await new Promise(r => setTimeout(r, 50));
 
-        const encrypted = pgp_encrypt(new TextEncoder().encode(msg), pubkey);
+        const encrypted = _pgp_encrypt(new TextEncoder().encode(msg), pubkey);
         document.getElementById('enc-out').textContent = new TextDecoder().decode(encrypted);
         show('enc-result');
         document.getElementById('enc-status').textContent = 'encrypted';
@@ -223,7 +235,7 @@
       }
     };
 
-    window.decrypt = async function() {
+    async function decrypt() {
       const seckey = document.getElementById('dec-seckey').value.trim();
       const pass = document.getElementById('dec-pass').value;
       const msg = document.getElementById('dec-msg').value.trim();
@@ -234,7 +246,7 @@
         document.getElementById('dec-status').textContent = 'decrypting...';
         await new Promise(r => setTimeout(r, 50));
 
-        const decrypted = pgp_decrypt(new TextEncoder().encode(msg), seckey, pass);
+        const decrypted = _pgp_decrypt(new TextEncoder().encode(msg), seckey, pass);
         document.getElementById('dec-out').textContent = new TextDecoder().decode(decrypted);
         show('dec-result');
         document.getElementById('dec-status').textContent = 'decrypted';
@@ -244,9 +256,9 @@
     };
 
     // Preload WASM on page load
-    ensureWasm().catch(e => {
+    ensureWasm().catch(function(e) {
       document.getElementById('loading-text').textContent = 'wasm load failed: ' + e.message;
-      // Keep overlay visible so user sees the error
+      show('loading');
     });
   </script>
 </body>

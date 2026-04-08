@@ -406,32 +406,9 @@ export default {
     return _setAttribute.call(this, name, value);
   };
 
-  // Intercept property setters for .src and .href
-  for (const tag of ['HTMLScriptElement', 'HTMLImageElement', 'HTMLIFrameElement', 'HTMLMediaElement', 'HTMLSourceElement']) {
-    const ctor = window[tag];
-    if (!ctor) continue;
-    const srcDesc = Object.getOwnPropertyDescriptor(ctor.prototype, 'src');
-    if (srcDesc && srcDesc.set) {
-      const origSet = srcDesc.set;
-      Object.defineProperty(ctor.prototype, 'src', {
-        ...srcDesc,
-        set(v) { origSet.call(this, _rewrite(v)); },
-      });
-    }
-  }
-  const linkHrefDesc = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, 'href');
-  if (linkHrefDesc && linkHrefDesc.set) {
-    const origSet = linkHrefDesc.set;
-    Object.defineProperty(HTMLLinkElement.prototype, 'href', {
-      ...linkHrefDesc,
-      set(v) { origSet.call(this, _rewrite(v)); },
-    });
-  }
-
-  // Spoof location properties to look like the target site
-  try {
-    Object.defineProperty(document, 'domain', { get: () => _loc.hostname, configurable: true });
-  } catch {}
+  // NOTE: Property setter overrides (.src, .href) removed — YouTube detects
+  // Object.defineProperty on built-in prototypes as tampering ("redefine non-configurable").
+  // MutationObserver below catches these changes after they happen instead.
 
   // Intercept navigator.sendBeacon
   const _sendBeacon = navigator.sendBeacon;
@@ -469,7 +446,10 @@ export default {
     const el = node;
     for (const attr of ['src', 'href', 'action', 'poster']) {
       const val = el.getAttribute(attr);
-      if (val && (val.startsWith('http') || val.startsWith('//'))) {
+      if (!val) continue;
+      // Skip already-proxied URLs and non-http
+      if (val.includes('/s/tunnel?url=')) continue;
+      if (val.startsWith('http') || val.startsWith('//')) {
         const rw = _rewrite(val);
         if (rw !== val) _setAttribute.call(el, attr, rw);
       }
@@ -488,18 +468,25 @@ export default {
     }
   }
 
-  // MutationObserver: catch dynamically added elements
+  // MutationObserver: catch dynamically added elements AND attribute changes
   const observer = new MutationObserver(function(mutations) {
     for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        rewriteNode(node);
-        if (node.querySelectorAll) {
-          node.querySelectorAll('[src],[href],[poster],[style*="url"]').forEach(rewriteNode);
+      if (m.type === 'childList') {
+        for (const node of m.addedNodes) {
+          rewriteNode(node);
+          if (node.querySelectorAll) {
+            node.querySelectorAll('[src],[href],[poster],[style*="url"]').forEach(rewriteNode);
+          }
         }
+      } else if (m.type === 'attributes') {
+        rewriteNode(m.target);
       }
     }
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true, subtree: true,
+    attributes: true, attributeFilter: ['src', 'href', 'poster', 'action', 'style'],
+  });
 
   // Intercept attachShadow to observe shadow roots
   const _attachShadow = Element.prototype.attachShadow;
@@ -519,16 +506,8 @@ export default {
     return shadow;
   };
 
-  // Intercept CSSStyleDeclaration.setProperty for background-image
-  const _setProperty = CSSStyleDeclaration.prototype.setProperty;
-  CSSStyleDeclaration.prototype.setProperty = function(prop, value, priority) {
-    if (typeof value === 'string' && value.includes('url(')) {
-      value = value.replace(/url\\(\\s*['"]?((?:https?:)?\\/\\/[^'"\\)]+)['"]?\\s*\\)/gi, function(m, u) {
-        return 'url(' + _rewrite(u.startsWith('//') ? 'https:' + u : u) + ')';
-      });
-    }
-    return _setProperty.call(this, prop, value, priority);
-  };
+  // NOTE: CSSStyleDeclaration.setProperty override removed — detected as tampering.
+  // MutationObserver with attributeFilter: ['style'] handles background-image rewrites.
 })();
 </script>`;
 

@@ -114,7 +114,23 @@ export default {
 			const domain = url.pathname.slice(9);
 			if (!domain) return err('missing domain');
 			try {
-				const rdapRes = await fetch(`https://rdap.org/domain/${encodeURIComponent(domain)}`);
+				// Try RDAP bootstrap via rdap.org, fall back to Cloudflare RDAP
+				let rdapRes = await fetch(`https://rdap.org/domain/${encodeURIComponent(domain)}`, {
+					headers: { 'User-Agent': 'seaofglass-rdap/1.0', 'Accept': 'application/rdap+json' },
+				});
+				if (!rdapRes.ok) {
+					// Fall back to ARIN RDAP for .com/.net/.org
+					const tld = domain.split('.').pop()?.toLowerCase();
+					const registryMap: Record<string, string> = {
+						com: 'https://rdap.verisign.com/com/v1',
+						net: 'https://rdap.verisign.com/net/v1',
+						org: 'https://rdap.org/domain',
+					};
+					const base = registryMap[tld || ''] || 'https://rdap.org/domain';
+					rdapRes = await fetch(`${base}/${encodeURIComponent(domain)}`, {
+						headers: { 'User-Agent': 'seaofglass-rdap/1.0', 'Accept': 'application/rdap+json' },
+					});
+				}
 				if (!rdapRes.ok) return err('rdap lookup failed: ' + rdapRes.status, 502);
 				const rdapData = await rdapRes.json();
 				return json(rdapData, 200, origin);

@@ -9,7 +9,7 @@ const ALLOWED_ORIGINS = [`https://${DOMAIN}`, 'http://localhost:8080'];
 
 // Rate limiting
 const rateMap = new Map<string, number[]>();
-const RATE_LIMIT = 15;
+const RATE_LIMIT = 200; // High limit — tunnel proxy generates many subrequests per page load
 const RATE_WINDOW = 60_000;
 
 function rateOk(ip: string): boolean {
@@ -286,20 +286,44 @@ export default {
 				const proxyBase = `https://${DOMAIN}/s/tunnel?url=`;
 				const targetOrigin = parsed.origin;
 
-				// Non-HTML: pass through directly (images, CSS, JS, fonts, etc.)
+				// Non-HTML content: proxy with URL rewriting for CSS
 				if (!contentType.includes('text/html')) {
 					const h = new Headers();
 					h.set('Content-Type', contentType);
 					h.set('Access-Control-Allow-Origin', '*');
 					h.set('Cache-Control', 'public, max-age=300');
+
+					// Rewrite url() in CSS
+					if (contentType.includes('text/css') || contentType.includes('stylesheet')) {
+						let css = await proxyRes.text();
+						css = css.replace(/url\(\s*['"]?((?:https?:)?\/\/[^'")]+)['"]?\s*\)/gi, (_m, u) => {
+							const abs = u.startsWith('//') ? 'https:' + u : u;
+							return `url(${proxyBase}${encodeURIComponent(abs)})`;
+						});
+						return new Response(css, { headers: h });
+					}
+
+					// JavaScript: rewrite absolute URL strings
+					if (contentType.includes('javascript') || contentType.includes('text/js')) {
+						let js = await proxyRes.text();
+						// Rewrite protocol-relative URLs in strings
+						js = js.replace(/"(\/\/[a-zA-Z0-9][\w.-]+\.[a-z]{2,}\/[^"]*?)"/g, (_m, u) => {
+							return `"${proxyBase}${encodeURIComponent('https:' + u)}"`;
+						});
+						return new Response(js, { headers: h });
+					}
+
 					return new Response(proxyRes.body, { headers: h });
 				}
 
 				// HTML: rewrite URLs with HTMLRewriter + inject JS shim
 				const resolveUrl = (relative: string) => {
 					try {
-						if (relative.startsWith('data:') || relative.startsWith('javascript:') || relative.startsWith('#') || relative.startsWith('mailto:')) return relative;
-						const abs = new URL(relative, targetUrl).href;
+						if (!relative || relative.startsWith('data:') || relative.startsWith('javascript:') || relative.startsWith('#') || relative.startsWith('mailto:') || relative.startsWith('blob:')) return relative;
+						// Handle protocol-relative URLs
+						let toResolve = relative;
+						if (toResolve.startsWith('//')) toResolve = 'https:' + toResolve;
+						const abs = new URL(toResolve, targetUrl).href;
 						return proxyBase + encodeURIComponent(abs);
 					} catch { return relative; }
 				};
@@ -310,20 +334,27 @@ export default {
   const _pbase = ${JSON.stringify(proxyBase)};
   const _torigin = ${JSON.stringify(targetOrigin)};
   const _turl = ${JSON.stringify(targetUrl)};
+  const _loc = new URL(_turl);
+
+  function _rewrite(u) {
+    if (!u || typeof u !== 'string') return u;
+    try {
+      if (u.startsWith('data:') || u.startsWith('blob:') || u.startsWith('javascript:') || u.startsWith('#')) return u;
+      let abs = u;
+      if (u.startsWith('//')) abs = 'https:' + u;
+      else abs = new URL(u, _turl).href;
+      if (abs.startsWith('http')) return _pbase + encodeURIComponent(abs);
+    } catch {}
+    return u;
+  }
 
   // Rewrite fetch
   const _fetch = window.fetch;
   window.fetch = function(input, init) {
-    if (typeof input === 'string') {
-      try {
-        const abs = new URL(input, _turl).href;
-        if (abs.startsWith('http')) input = _pbase + encodeURIComponent(abs);
-      } catch {}
-    } else if (input instanceof Request) {
-      try {
-        const abs = new URL(input.url, _turl).href;
-        if (abs.startsWith('http')) input = new Request(_pbase + encodeURIComponent(abs), input);
-      } catch {}
+    if (typeof input === 'string') input = _rewrite(input);
+    else if (input instanceof Request) {
+      const rw = _rewrite(input.url);
+      if (rw !== input.url) input = new Request(rw, input);
     }
     return _fetch.call(this, input, init);
   };
@@ -331,18 +362,93 @@ export default {
   // Rewrite XMLHttpRequest
   const _xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, xhrUrl, ...args) {
-    try {
-      const abs = new URL(xhrUrl, _turl).href;
-      if (abs.startsWith('http')) xhrUrl = _pbase + encodeURIComponent(abs);
-    } catch {}
-    return _xhrOpen.call(this, method, xhrUrl, ...args);
+    return _xhrOpen.call(this, method, _rewrite(xhrUrl), ...args);
   };
 
-  // Rewrite window.location reads
+  // Rewrite history.pushState / replaceState
+  const _pushState = history.pushState;
+  const _replaceState = history.replaceState;
+  history.pushState = function(state, title, url) {
+    if (url) url = _rewrite(url);
+    return _pushState.call(this, state, title, url);
+  };
+  history.replaceState = function(state, title, url) {
+    if (url) url = _rewrite(url);
+    return _replaceState.call(this, state, title, url);
+  };
+
+  // Rewrite window.open
+  const _open = window.open;
+  window.open = function(url, ...args) {
+    return _open.call(this, _rewrite(url), ...args);
+  };
+
+  // Intercept dynamic element creation (script.src, img.src, link.href, etc.)
+  const _setAttribute = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function(name, value) {
+    if ((name === 'src' || name === 'href' || name === 'action') && typeof value === 'string') {
+      value = _rewrite(value);
+    }
+    return _setAttribute.call(this, name, value);
+  };
+
+  // Intercept property setters for .src and .href
+  for (const tag of ['HTMLScriptElement', 'HTMLImageElement', 'HTMLIFrameElement', 'HTMLMediaElement', 'HTMLSourceElement']) {
+    const ctor = window[tag];
+    if (!ctor) continue;
+    const srcDesc = Object.getOwnPropertyDescriptor(ctor.prototype, 'src');
+    if (srcDesc && srcDesc.set) {
+      const origSet = srcDesc.set;
+      Object.defineProperty(ctor.prototype, 'src', {
+        ...srcDesc,
+        set(v) { origSet.call(this, _rewrite(v)); },
+      });
+    }
+  }
+  const linkHrefDesc = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, 'href');
+  if (linkHrefDesc && linkHrefDesc.set) {
+    const origSet = linkHrefDesc.set;
+    Object.defineProperty(HTMLLinkElement.prototype, 'href', {
+      ...linkHrefDesc,
+      set(v) { origSet.call(this, _rewrite(v)); },
+    });
+  }
+
+  // Spoof location properties to look like the target site
   try {
-    const _loc = new URL(_turl);
-    Object.defineProperty(document, 'domain', { get: () => _loc.hostname });
+    Object.defineProperty(document, 'domain', { get: () => _loc.hostname, configurable: true });
   } catch {}
+
+  // Intercept navigator.sendBeacon
+  const _sendBeacon = navigator.sendBeacon;
+  if (_sendBeacon) {
+    navigator.sendBeacon = function(url, data) {
+      return _sendBeacon.call(this, _rewrite(url), data);
+    };
+  }
+
+  // Intercept EventSource
+  const _EventSource = window.EventSource;
+  if (_EventSource) {
+    window.EventSource = function(url, opts) {
+      return new _EventSource(_rewrite(url), opts);
+    };
+    window.EventSource.prototype = _EventSource.prototype;
+  }
+
+  // Intercept WebSocket (rewrite wss:// URLs)
+  const _WebSocket = window.WebSocket;
+  if (_WebSocket) {
+    window.WebSocket = function(url, protocols) {
+      // Can't proxy WebSockets yet — let them connect directly
+      return new _WebSocket(url, protocols);
+    };
+    window.WebSocket.prototype = _WebSocket.prototype;
+    window.WebSocket.CONNECTING = _WebSocket.CONNECTING;
+    window.WebSocket.OPEN = _WebSocket.OPEN;
+    window.WebSocket.CLOSING = _WebSocket.CLOSING;
+    window.WebSocket.CLOSED = _WebSocket.CLOSED;
+  }
 })();
 </script>`;
 
@@ -437,6 +543,19 @@ export default {
 					// Rewrite <base href>
 					.on('base[href]', {
 						element(el) { el.remove(); },
+					})
+					// Rewrite inline <style> url() references
+					.on('style', {
+						text(chunk) {
+							const t = chunk.text;
+							if (t.includes('url(')) {
+								const rewritten = t.replace(/url\(\s*['"]?((?:https?:)?\/\/[^'")]+)['"]?\s*\)/gi, (_m: string, u: string) => {
+									const abs = u.startsWith('//') ? 'https:' + u : u;
+									return `url(${proxyBase}${encodeURIComponent(abs)})`;
+								});
+								chunk.replace(rewritten);
+							}
+						},
 					});
 
 				const transformed = rewriter.transform(proxyRes);

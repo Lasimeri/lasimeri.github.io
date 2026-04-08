@@ -127,85 +127,77 @@
   </div>
 
   <script>
-    // Non-module script so we can catch all errors visibly
-    let _init, _pgp_keygen, _pgp_encrypt, _pgp_decrypt, _pgp_fingerprint, _wasmBytes;
-    let wasmReady = false;
+    var worker = new Worker('/pgp/pgp-worker.js', { type: 'module' });
+    var wasmReady = false;
+    var pendingCallbacks = {};
+    var nextId = 0;
 
-    async function loadWasmModule() {
-      const mod = await import('/pgp/wasm/pkg/glass_pgp.js');
-      _init = mod.default;
-      _pgp_keygen = mod.pgp_keygen;
-      _pgp_encrypt = mod.pgp_encrypt;
-      _pgp_decrypt = mod.pgp_decrypt;
-      _pgp_fingerprint = mod.pgp_fingerprint;
-      // Pre-fetch WASM as ArrayBuffer to avoid instantiateStreaming issues
-      _wasmBytes = await fetch('/pgp/wasm/pkg/glass_pgp_bg.wasm').then(function(r) { return r.arrayBuffer(); });
-    }
-
-    async function ensureWasm() {
-      if (wasmReady) return;
-      show('loading');
-      try {
-        document.getElementById('loading-text').textContent = 'loading pgp module...';
-        await loadWasmModule();
-        document.getElementById('loading-text').textContent = 'compiling wasm (1.5MB)...';
-        // Pass pre-fetched bytes to avoid instantiateStreaming issues
-        const initPromise = _init({ module_or_path: _wasmBytes });
-        const timeout = new Promise(function(_, reject) {
-          setTimeout(function() { reject(new Error('wasm init timed out after 30s')); }, 30000);
-        });
-        await Promise.race([initPromise, timeout]);
+    worker.onmessage = function(e) {
+      var d = e.data;
+      if (d.status) {
+        document.getElementById('loading-text').textContent = d.status;
+      }
+      if (d.type === 'ready') {
         wasmReady = true;
         hide('loading');
-      } catch(e) {
-        document.getElementById('loading-text').textContent = 'error: ' + e.message;
       }
+      if (d.type === 'result' || d.type === 'error') {
+        var cb = pendingCallbacks[d.id];
+        if (cb) {
+          if (d.type === 'error') cb.reject(new Error(d.error));
+          else cb.resolve(d.data);
+          delete pendingCallbacks[d.id];
+        }
+      }
+    };
+
+    function workerCall(msg) {
+      return new Promise(function(resolve, reject) {
+        var id = nextId++;
+        msg.id = id;
+        pendingCallbacks[id] = { resolve: resolve, reject: reject };
+        worker.postMessage(msg);
+      });
     }
 
     function show(id) { document.getElementById(id).classList.remove('hidden'); }
     function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
     function showTab(name, btn) {
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
       document.getElementById(name).classList.add('active');
       btn.classList.add('active');
     }
 
     function copyEl(id) {
       navigator.clipboard.writeText(document.getElementById(id).textContent);
-    };
+    }
 
     function downloadText(id, filename) {
-      const text = document.getElementById(id).textContent;
-      const blob = new Blob([text], { type: 'text/plain' });
-      const a = document.createElement('a');
+      var text = document.getElementById(id).textContent;
+      var blob = new Blob([text], { type: 'text/plain' });
+      var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = filename;
       a.click();
       URL.revokeObjectURL(a.href);
-    };
+    }
 
     async function keygen() {
-      const name = document.getElementById('kg-name').value.trim();
-      const email = document.getElementById('kg-email').value.trim();
-      const pass = document.getElementById('kg-pass').value;
+      var name = document.getElementById('kg-name').value.trim();
+      var email = document.getElementById('kg-email').value.trim();
+      var pass = document.getElementById('kg-pass').value;
       if (!name || !email) { document.getElementById('kg-status').textContent = 'name and email required'; return; }
       if (!pass) { document.getElementById('kg-status').textContent = 'passphrase required'; return; }
 
       document.getElementById('kg-btn').disabled = true;
       show('loading');
-      document.getElementById('loading-text').textContent = 'generating RSA-4096 keypair — this takes 30-60s...';
+      document.getElementById('loading-text').textContent = 'generating RSA-4096 keypair...';
 
       try {
-        await ensureWasm();
-        hide('loading');
-        show('loading');
-        document.getElementById('loading-text').textContent = 'generating RSA-4096 keypair...';
-
-        // Run in a microtask to let the UI update
-        await new Promise(r => setTimeout(r, 50));
-        const result = JSON.parse(_pgp_keygen(name, email, pass));
+        var resultJson = await workerCall({ type: 'keygen', name: name, email: email, passphrase: pass });
+        var result = JSON.parse(resultJson);
 
         document.getElementById('kg-pub').textContent = result.public;
         document.getElementById('kg-sec').textContent = result.secret;
@@ -213,9 +205,8 @@
         show('kg-result');
         document.getElementById('kg-status').textContent = 'keypair generated';
 
-        // Auto-download private key
-        const blob = new Blob([result.secret], { type: 'text/plain' });
-        const a = document.createElement('a');
+        var blob = new Blob([result.secret], { type: 'text/plain' });
+        var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'private-key.asc';
         a.click();
@@ -225,52 +216,46 @@
       }
       hide('loading');
       document.getElementById('kg-btn').disabled = false;
-    };
+    }
 
     async function encrypt() {
-      const pubkey = document.getElementById('enc-pubkey').value.trim();
-      const msg = document.getElementById('enc-msg').value;
+      var pubkey = document.getElementById('enc-pubkey').value.trim();
+      var msg = document.getElementById('enc-msg').value;
       if (!pubkey || !msg) { document.getElementById('enc-status').textContent = 'public key and message required'; return; }
 
+      show('loading');
       try {
-        await ensureWasm();
-        document.getElementById('enc-status').textContent = 'encrypting...';
-        await new Promise(r => setTimeout(r, 50));
-
-        const encrypted = _pgp_encrypt(new TextEncoder().encode(msg), pubkey);
-        document.getElementById('enc-out').textContent = new TextDecoder().decode(encrypted);
+        var encrypted = await workerCall({ type: 'encrypt', plaintext: Array.from(new TextEncoder().encode(msg)), pubkey: pubkey });
+        document.getElementById('enc-out').textContent = new TextDecoder().decode(new Uint8Array(encrypted));
         show('enc-result');
         document.getElementById('enc-status').textContent = 'encrypted';
       } catch (e) {
         document.getElementById('enc-status').textContent = 'error: ' + e.message;
       }
-    };
+      hide('loading');
+    }
 
     async function decrypt() {
-      const seckey = document.getElementById('dec-seckey').value.trim();
-      const pass = document.getElementById('dec-pass').value;
-      const msg = document.getElementById('dec-msg').value.trim();
+      var seckey = document.getElementById('dec-seckey').value.trim();
+      var pass = document.getElementById('dec-pass').value;
+      var msg = document.getElementById('dec-msg').value.trim();
       if (!seckey || !msg) { document.getElementById('dec-status').textContent = 'private key and message required'; return; }
 
+      show('loading');
       try {
-        await ensureWasm();
-        document.getElementById('dec-status').textContent = 'decrypting...';
-        await new Promise(r => setTimeout(r, 50));
-
-        const decrypted = _pgp_decrypt(new TextEncoder().encode(msg), seckey, pass);
-        document.getElementById('dec-out').textContent = new TextDecoder().decode(decrypted);
+        var decrypted = await workerCall({ type: 'decrypt', encrypted: Array.from(new TextEncoder().encode(msg)), seckey: seckey, passphrase: pass });
+        document.getElementById('dec-out').textContent = new TextDecoder().decode(new Uint8Array(decrypted));
         show('dec-result');
         document.getElementById('dec-status').textContent = 'decrypted';
       } catch (e) {
         document.getElementById('dec-status').textContent = 'error: ' + e.message;
       }
-    };
+      hide('loading');
+    }
 
-    // Preload WASM on page load
-    ensureWasm().catch(function(e) {
-      document.getElementById('loading-text').textContent = 'wasm load failed: ' + e.message;
-      show('loading');
-    });
+    // Init WASM in the worker on page load
+    show('loading');
+    worker.postMessage({ type: 'init', id: -1 });
   </script>
 </body>
 </html>

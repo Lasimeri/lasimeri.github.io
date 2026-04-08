@@ -253,6 +253,207 @@ export default {
 			}
 		}
 
+		// ── GET /s/tunnel — web proxy with HTMLRewriter ──
+		if (url.pathname.startsWith('/s/tunnel')) {
+			const targetUrl = url.searchParams.get('url');
+			if (!targetUrl) return err('missing ?url= parameter');
+
+			let parsed: URL;
+			try { parsed = new URL(targetUrl); } catch { return err('invalid url'); }
+			if (!['http:', 'https:'].includes(parsed.protocol)) return err('only http/https');
+
+			const host = parsed.hostname;
+			if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|localhost|::1|\[::1\])/.test(host)) {
+				return err('private addresses blocked');
+			}
+
+			try {
+				const controller = new AbortController();
+				const timeout = setTimeout(() => controller.abort(), 10000);
+
+				const proxyRes = await fetch(targetUrl, {
+					signal: controller.signal,
+					headers: {
+						'User-Agent': request.headers.get('User-Agent') || 'Mozilla/5.0',
+						'Accept': request.headers.get('Accept') || 'text/html,*/*',
+						'Accept-Language': request.headers.get('Accept-Language') || 'en-US,en;q=0.9',
+					},
+					redirect: 'follow',
+				});
+				clearTimeout(timeout);
+
+				const contentType = proxyRes.headers.get('Content-Type') || '';
+				const proxyBase = `https://${DOMAIN}/s/tunnel?url=`;
+				const targetOrigin = parsed.origin;
+
+				// Non-HTML: pass through directly (images, CSS, JS, fonts, etc.)
+				if (!contentType.includes('text/html')) {
+					const h = new Headers();
+					h.set('Content-Type', contentType);
+					h.set('Access-Control-Allow-Origin', '*');
+					h.set('Cache-Control', 'public, max-age=300');
+					return new Response(proxyRes.body, { headers: h });
+				}
+
+				// HTML: rewrite URLs with HTMLRewriter + inject JS shim
+				const resolveUrl = (relative: string) => {
+					try {
+						if (relative.startsWith('data:') || relative.startsWith('javascript:') || relative.startsWith('#') || relative.startsWith('mailto:')) return relative;
+						const abs = new URL(relative, targetUrl).href;
+						return proxyBase + encodeURIComponent(abs);
+					} catch { return relative; }
+				};
+
+				// JS shim injected into <head> to intercept dynamic requests
+				const jsShim = `<script>
+(function(){
+  const _pbase = ${JSON.stringify(proxyBase)};
+  const _torigin = ${JSON.stringify(targetOrigin)};
+  const _turl = ${JSON.stringify(targetUrl)};
+
+  // Rewrite fetch
+  const _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (typeof input === 'string') {
+      try {
+        const abs = new URL(input, _turl).href;
+        if (abs.startsWith('http')) input = _pbase + encodeURIComponent(abs);
+      } catch {}
+    } else if (input instanceof Request) {
+      try {
+        const abs = new URL(input.url, _turl).href;
+        if (abs.startsWith('http')) input = new Request(_pbase + encodeURIComponent(abs), input);
+      } catch {}
+    }
+    return _fetch.call(this, input, init);
+  };
+
+  // Rewrite XMLHttpRequest
+  const _xhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, xhrUrl, ...args) {
+    try {
+      const abs = new URL(xhrUrl, _turl).href;
+      if (abs.startsWith('http')) xhrUrl = _pbase + encodeURIComponent(abs);
+    } catch {}
+    return _xhrOpen.call(this, method, xhrUrl, ...args);
+  };
+
+  // Rewrite window.location reads
+  try {
+    const _loc = new URL(_turl);
+    Object.defineProperty(document, 'domain', { get: () => _loc.hostname });
+  } catch {}
+})();
+</script>`;
+
+				const rewriter = new HTMLRewriter()
+					// Inject JS shim into <head>
+					.on('head', {
+						element(el) { el.prepend(jsShim, { html: true }); },
+					})
+					// Rewrite <a href>
+					.on('a[href]', {
+						element(el) {
+							const href = el.getAttribute('href');
+							if (href) el.setAttribute('href', resolveUrl(href));
+						},
+					})
+					// Rewrite <link href> (CSS, icons, etc.)
+					.on('link[href]', {
+						element(el) {
+							const href = el.getAttribute('href');
+							if (href) el.setAttribute('href', resolveUrl(href));
+						},
+					})
+					// Rewrite <script src>
+					.on('script[src]', {
+						element(el) {
+							const src = el.getAttribute('src');
+							if (src) el.setAttribute('src', resolveUrl(src));
+						},
+					})
+					// Rewrite <img src> and <img srcset>
+					.on('img[src]', {
+						element(el) {
+							const src = el.getAttribute('src');
+							if (src) el.setAttribute('src', resolveUrl(src));
+							const srcset = el.getAttribute('srcset');
+							if (srcset) {
+								const rewritten = srcset.split(',').map(entry => {
+									const parts = entry.trim().split(/\s+/);
+									parts[0] = resolveUrl(parts[0]);
+									return parts.join(' ');
+								}).join(', ');
+								el.setAttribute('srcset', rewritten);
+							}
+						},
+					})
+					// Rewrite <source src/srcset>
+					.on('source[src], source[srcset]', {
+						element(el) {
+							const src = el.getAttribute('src');
+							if (src) el.setAttribute('src', resolveUrl(src));
+							const srcset = el.getAttribute('srcset');
+							if (srcset) {
+								const rewritten = srcset.split(',').map(entry => {
+									const parts = entry.trim().split(/\s+/);
+									parts[0] = resolveUrl(parts[0]);
+									return parts.join(' ');
+								}).join(', ');
+								el.setAttribute('srcset', rewritten);
+							}
+						},
+					})
+					// Rewrite <form action>
+					.on('form[action]', {
+						element(el) {
+							const action = el.getAttribute('action');
+							if (action) el.setAttribute('action', resolveUrl(action));
+						},
+					})
+					// Rewrite <iframe src>
+					.on('iframe[src]', {
+						element(el) {
+							const src = el.getAttribute('src');
+							if (src) el.setAttribute('src', resolveUrl(src));
+						},
+					})
+					// Rewrite <video src>, <audio src>
+					.on('video[src], audio[src]', {
+						element(el) {
+							const src = el.getAttribute('src');
+							if (src) el.setAttribute('src', resolveUrl(src));
+						},
+					})
+					// Strip frame-busting headers via <meta>
+					.on('meta[http-equiv]', {
+						element(el) {
+							const equiv = el.getAttribute('http-equiv')?.toLowerCase();
+							if (equiv === 'content-security-policy' || equiv === 'x-frame-options') {
+								el.remove();
+							}
+						},
+					})
+					// Rewrite <base href>
+					.on('base[href]', {
+						element(el) { el.remove(); },
+					});
+
+				const transformed = rewriter.transform(proxyRes);
+
+				const h = new Headers();
+				h.set('Content-Type', 'text/html; charset=utf-8');
+				h.set('Access-Control-Allow-Origin', '*');
+				// Remove frame-busting headers
+				// (proxyRes headers are NOT forwarded — we build clean headers)
+
+				return new Response(transformed.body, { headers: h });
+
+			} catch (e: any) {
+				return err('tunnel error: ' + e.message, 502);
+			}
+		}
+
 		return err('not found', 404);
 	},
 };

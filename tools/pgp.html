@@ -143,12 +143,21 @@
     async function ensureWasm() {
       if (wasmReady) return;
       show('loading');
-      document.getElementById('loading-text').textContent = 'loading pgp wasm module...';
-      await loadWasmModule();
-      document.getElementById('loading-text').textContent = 'initializing wasm...';
-      await _init();
-      wasmReady = true;
-      hide('loading');
+      try {
+        document.getElementById('loading-text').textContent = 'loading pgp module...';
+        await loadWasmModule();
+        document.getElementById('loading-text').textContent = 'compiling wasm (1.5MB)...';
+        // Race against a timeout to detect hangs
+        const initPromise = _init();
+        const timeout = new Promise(function(_, reject) {
+          setTimeout(function() { reject(new Error('wasm init timed out after 30s')); }, 30000);
+        });
+        await Promise.race([initPromise, timeout]);
+        wasmReady = true;
+        hide('loading');
+      } catch(e) {
+        document.getElementById('loading-text').textContent = 'error: ' + e.message;
+      }
     }
 
     function show(id) { document.getElementById(id).classList.remove('hidden'); }

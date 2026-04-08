@@ -34,7 +34,7 @@
     <p>enter a URL above to browse through the tunnel</p>
     <p style="opacity:0.4;font-size:0.6rem">static/simple sites work best — JS-heavy SPAs may break</p>
   </div>
-  <iframe class="frame hidden" id="frame" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+  <iframe class="frame hidden" id="frame"></iframe>
   <script>
     const PROXY = '/s/tunnel?url=';
     const urlInput = document.getElementById('url');

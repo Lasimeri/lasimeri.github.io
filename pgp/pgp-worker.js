@@ -11,7 +11,7 @@ self.onmessage = async function(e) {
       self.postMessage({ id, status: 'fetching wasm' });
       const bytes = await fetch('/pgp/wasm/pkg/glass_pgp_bg.wasm').then(r => r.arrayBuffer());
       self.postMessage({ id, status: 'compiling wasm' });
-      await mod.default({ module_or_path: bytes });
+      await mod.default(bytes);
       wasm = mod;
       self.postMessage({ id, type: 'ready' });
     }

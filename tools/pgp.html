@@ -243,7 +243,10 @@
     };
 
     // Preload WASM on page load
-    ensureWasm().catch(() => {});
+    ensureWasm().catch(e => {
+      document.getElementById('loading-text').textContent = 'wasm load failed: ' + e.message;
+      // Keep overlay visible so user sees the error
+    });
   </script>
 </body>
 </html>

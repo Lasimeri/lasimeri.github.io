@@ -177,7 +177,10 @@ export default {
 			const obj = await env.STORE.get(`short:${shortId}`);
 			if (!obj) return err('not found', 404);
 			const target = await obj.text();
-			return cors(new Response(null, { status: 301, headers: { 'Location': target } }), origin);
+			// Route through the browser-generated splash (preload + disclaimer +
+			// click-through) instead of redirecting straight to the target.
+			const splash = `https://${DOMAIN}/shrtlnk/r/?to=${encodeURIComponent(target)}`;
+			return cors(new Response(null, { status: 302, headers: { 'Location': splash } }), origin);
 		}
 
 		// ── POST /s/tmp + GET /s/tmp/:id — temp file drop ──

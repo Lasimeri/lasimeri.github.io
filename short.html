@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>short — redirecting</title>
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="canonical" href="/shrtlink/">
+  <meta http-equiv="refresh" content="0; url=/shrtlink/">
+  <style>
+    :root { --bg: #0a0a0f; --border: #1e1e2e; --text: #c4945a; --text-dim: #8a6a3e; --accent: #c4945a; --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--mono); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .box { text-align: center; }
+    .msg { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.75rem; letter-spacing: 0.05em; }
+    a { color: var(--accent); text-decoration: none; font-size: 0.8rem; border-bottom: 1px solid var(--border); }
+    a:hover { border-color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="msg">redirecting to shrtlink&hellip;</div>
+    <a href="/shrtlink/">continue &rarr;</a>
+  </div>
+  <script>
+    // Preserve any query/hash so /short?to=<url> forwards intact to the interstitial.
+    location.replace('/shrtlink/' + location.search + location.hash);
+  </script>
+</body>
+</html>

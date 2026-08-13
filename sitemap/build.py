@@ -7,29 +7,31 @@ import re
 
 # ── data model ──────────────────────────────────────────────────────────────
 
-PAGES = [
-    ('/',                'landing page'),
-    ('/sitemap/',        'this map, built by build.py'),
-    ('/ittybitty/',      'html-in-a-url editor'),
-    ('/qii/',            'quake ii via wasm'),
-    ('/shrtlnk/',        'shortener ui'),
-    ('/shrtlnk/r/',      'redirect splash'),
-    ('/tools/',          'ip · headers · dns ·'),
-    ('',                 'ping · whois · tmp'),
-    ('/tools/pgp.html',  'openpgp, in-browser'),
-    ('/tools/pgp/',      'rust→wasm pgp runtime'),
+CARDS = [
+    ('/',            'landing',   False),
+    ('/sitemap/',    'this map',  False),
+    ('/ittybitty/',  'url = doc', False),
+    ('/qii/',        'quake ii',  False),
+    ('/shrtlnk/',    'shortener', True),    # True: page fetches the worker
+    ('/tools/',      '7 utils',   True),
+]
+
+WORKER_GROUPS = [
+    ('reflect', '/s/ip · /s/headers'),
+    ('lookup',  '/s/dns · /s/ping · /s/whois'),
+    ('store',   '/s/go · /s/tmp'),
 ]
 
 ROUTES = [
-    ('GET',  '/s/ip',       'your ip, echoed',      ''),
-    ('GET',  '/s/headers',  'your request headers', ''),
-    ('GET',  '/s/dns/…',    'doh lookup',           'ext'),
-    ('GET',  '/s/ping/…',   'timed fetch',          'ext'),
-    ('GET',  '/s/whois/…',  'rdap lookup',          'ext'),
-    ('POST', '/s/go',       'mint short link',      'r2'),
-    ('GET',  '/s/go/:id',   'resolve link',         'r2'),
-    ('POST', '/s/tmp',      'file drop, 1 hr',      'r2'),
-    ('GET',  '/s/tmp/:id',  'fetch file',           'r2'),
+    ('GET',  '/s/ip',       'your ip, echoed back',  ''),
+    ('GET',  '/s/headers',  'your request headers',  ''),
+    ('GET',  '/s/dns/…',    'doh lookup',            'ext'),
+    ('GET',  '/s/ping/…',   'timed fetch',           'ext'),
+    ('GET',  '/s/whois/…',  'rdap lookup',           'ext'),
+    ('POST', '/s/go',       'mint short link',       'r2'),
+    ('GET',  '/s/go/:id',   'resolve link',          'r2'),
+    ('POST', '/s/tmp',      'file drop, 1 hr',       'r2'),
+    ('GET',  '/s/tmp/:id',  'fetch dropped file',    'r2'),
 ]
 
 R2_BOX = ('r2 · sea-glass-store', [
@@ -66,6 +68,7 @@ TITLES = [
     'external services',
     'the short-link round trip',
     'client-side only · never talk to crystal',
+    '/sitemap/', '/ittybitty/', '/qii/', '/shrtlnk/', '/tools/',
 ]
 
 ROLES = [
@@ -108,10 +111,10 @@ ROLES = [
      'alongside the built wasm, so the artifact is reproducible.'),
     ('crystal', 'cloudflare worker',
      'the only server code on the site: one typescript file behind '
-     '<code>seaof.glass/s/*</code>. nine routes, rate-limited to 60 requests a '
-     'minute per ip, cors locked to the site origin. it holds no logic beyond what '
-     'the static pages cannot do themselves: reflecting network facts, fetching '
-     'cross-origin, and touching storage.'),
+     '<code>seaof.glass/s/*</code>. nine routes in three families (reflect, lookup, '
+     'store), rate-limited to 60 requests a minute per ip, cors locked to the site '
+     'origin. it holds no logic beyond what the static pages cannot do themselves: '
+     'reflecting network facts, fetching cross-origin, and touching storage.'),
     ('r2', 'sea-glass-store',
      'the only state anywhere. <code>short:*</code> keys map ids to target urls and '
      'live forever; <code>tmp:*</code> keys hold uploads stamped with an expiry that '
@@ -132,11 +135,166 @@ SITEMAP_XML_PATHS = [
 ]
 LASTMOD = '2026-08-13'
 
-# ── layout engine ───────────────────────────────────────────────────────────
+# ── canvas + box primitives ─────────────────────────────────────────────────
 
-PAD = 3          # spaces inside each box edge
-GAP = 9          # gap between the two main boxes; odd so the canvas has an exact center column
-SUBGAP = 3       # gap between the two bottom boxes
+PAD = 3
+
+
+class Canvas:
+    def __init__(self, width):
+        self.width = width
+        self.rows = []
+
+    def _ensure(self, r):
+        while len(self.rows) <= r:
+            self.rows.append([' '] * self.width)
+
+    def put(self, r, c, s):
+        self._ensure(r)
+        assert c + len(s) <= self.width, f'row {r} overflows: {s!r}'
+        for i, ch in enumerate(s):
+            self.rows[r][c + i] = ch
+
+    def putv(self, r1, r2, c, ch='│'):
+        for r in range(r1, r2 + 1):
+            self.put(r, c, ch)
+
+    def hline(self, r, c1, c2, ch='─'):
+        self.put(r, c1, ch * (c2 - c1 + 1))
+
+    def text(self):
+        return '\n'.join(''.join(r).rstrip() for r in self.rows)
+
+
+def box_lines(titles, body, single=True, inner=None, pad=PAD):
+    """Box as a list of lines; odd outer width so an exact center column exists."""
+    tl, tr, bl, br, hz, vt = ('┌', '┐', '└', '┘', '─', '│') if single else \
+                             ('╔', '╗', '╚', '╝', '═', '║')
+    content = list(titles) + ([''] if body else []) + list(body)
+    w = max(max(len(l) for l in content) + 2 * pad, inner or 0)
+    if (w + 2) % 2 == 0:
+        w += 1
+    out = [tl + hz * w + tr]
+    for i, l in enumerate(content):
+        out.append(vt + (l.center(w) if i < len(titles) else (' ' * pad + l).ljust(w)) + vt)
+    out.append(bl + hz * w + br)
+    return out
+
+
+def paint(canvas, r, center, lines):
+    """Paint box lines centered on a column; return (top, bottom, left, right)."""
+    left = center - len(lines[0]) // 2
+    for i, l in enumerate(lines):
+        canvas.put(r + i, left, l)
+    return r, r + len(lines) - 1, left, left + len(lines[0]) - 1
+
+
+# ── the map ─────────────────────────────────────────────────────────────────
+
+def build_diagram():
+    W = 106
+    CTR = 50
+    K = [7, 23, 39, 55, 71, 87]          # page card centers, 16 apart
+    RAIL = 99                             # the /s/* rail column
+    c = Canvas(W)
+
+    # browser
+    _, y, _, _ = paint(c, 0, CTR, box_lines(['your browser'], [], single=False, inner=21))
+    c.put(y, CTR, '╤')
+    c.put(y + 1, CTR, '│  https')
+    y += 2
+
+    # dns zone: a bottom port down to the pages hub, a side port out to the /s/* rail
+    top, y, zl, zr = paint(c, y, CTR, box_lines(['seaof.glass', 'cloudflare dns zone'], [], single=False))
+    c.put(top, CTR, '╧')
+    rail_row = top + 2
+    c.put(rail_row, zr, '╟')
+    c.hline(rail_row, zr + 1, RAIL - 1)
+    c.put(rail_row, RAIL, '┐')
+    c.put(rail_row, zr + 16, ' /s/* ')
+    c.put(y, CTR, '╤')
+    c.put(y + 1, CTR - 9, 'GET /*')
+    c.put(y + 1, CTR, '│')
+    c.put(y + 2, CTR, '│')
+    rail_top = rail_row + 1
+    y += 3
+
+    # pages hub
+    top, y, _, _ = paint(c, y, CTR, box_lines(
+        ['github pages · static site', 'repo Lasimeri/lasimeri.github.io'], []))
+    c.put(top, CTR, '╧'.replace('╧', '┴'))
+    c.put(y, CTR, '┬')
+
+    # fan-out bus to the page cards
+    bus = y + 1
+    c.hline(bus, K[0], K[-1])
+    c.put(bus, K[0], '┌')
+    c.put(bus, K[-1], '┐')
+    for k in K[1:-1]:
+        c.put(bus, k, '┬')
+    c.put(bus, CTR, '┴')
+    for k in K:
+        c.put(bus + 1, k, '│')
+
+    # page cards
+    card_top = bus + 2
+    fetchers = []
+    for k, (path, desc, fetches) in zip(K, CARDS):
+        t, b, _, _ = paint(c, card_top, k, box_lines([path, desc], [], inner=13, pad=1))
+        c.put(t, k, '┴')
+        if fetches:
+            fetchers.append(k)
+    card_bot = card_top + 3
+
+    # dashed fetch edges from the api-using pages down into the worker
+    for k in fetchers:
+        c.put(card_bot, k, '┬')
+        c.putv(card_bot + 1, card_bot + 2, k, '┆')
+    c.put(card_bot + 1, fetchers[0] - 13, 'fetch /s/*')
+
+    # the rail comes down the right margin and elbows into the worker top
+    c.putv(rail_top, card_bot + 1, RAIL, '│')
+    rail_in = 95
+    c.put(card_bot + 2, RAIL, '┘')
+    c.hline(card_bot + 2, rail_in + 1, RAIL - 1)
+    c.put(card_bot + 2, rail_in, '┌')
+
+    # crystal worker: routes compressed to three families
+    wtop = card_bot + 3
+    groups = table([(g, routes) for g, routes in WORKER_GROUPS])
+    wlines = box_lines(['crystal · cloudflare worker', 'worker/src/index.ts · 60 req/min/ip'],
+                       groups, single=False, inner=43)
+    wleft = fetchers[0] - 12
+    for i, l in enumerate(wlines):
+        c.put(wtop + i, wleft, l)
+    wbot = wtop + len(wlines) - 1
+    wright = wleft + len(wlines[0]) - 1
+    for k in fetchers:
+        c.put(wtop, k, '╧')
+    c.put(wtop, rail_in, '╧')
+    assert wleft < fetchers[0] and fetchers[-1] < rail_in < wright, 'worker top ports out of range'
+
+    # client-side annotation in the open left column
+    c.put(wtop + 3, 6, 'client-side only:')
+    c.put(wtop + 4, 6, '/ittybitty/ · /qii/ · /tools/pgp')
+    c.put(wtop + 5, 6, 'never talk to crystal')
+
+    # storage + external services hang off the worker bottom
+    r2l = box_lines([R2_BOX[0]], R2_BOX[1], pad=2)
+    exl = box_lines([EXT_BOX[0]], EXT_BOX[1], pad=2)
+    while len(r2l) < len(exl):
+        r2l.insert(-1, '│' + ' ' * (len(r2l[0]) - 2) + '│')
+    d1, d2 = 64, 92
+    c.put(wbot, d1, '╤')
+    c.put(wbot, d2, '╤')
+    c.putv(wbot + 1, wbot + 1, d1)
+    c.putv(wbot + 1, wbot + 1, d2)
+    t1, _, _, _ = paint(c, wbot + 2, d1, r2l)
+    t2, _, _, _ = paint(c, wbot + 2, d2, exl)
+    c.put(t1, d1, '┴')
+    c.put(t2, d2, '┴')
+
+    return c.text()
 
 
 def table(rows):
@@ -145,158 +303,21 @@ def table(rows):
     widths = [0] * ncols
     for r in rows:
         for i, cell in enumerate(r[:-1]):
-            widths[i] = max(widths[i], len(cell) + 2)
+            widths[i] = max(widths[i], len(cell) + 3)
     out = []
     for r in rows:
-        line = ''.join(cell.ljust(widths[i]) for i, cell in enumerate(r[:-1])) + r[-1]
-        out.append(line)
+        out.append(''.join(cell.ljust(widths[i]) for i, cell in enumerate(r[:-1])) + r[-1])
     return out
 
 
-def box(titles, body, inner=None, odd=False):
-    """Return list of border-to-border lines. Titles centered, body left at PAD.
-    odd=True forces an odd outer width so the box has an exact center column."""
-    content = list(titles) + ([''] if body else []) + list(body)
-    need = max(len(l) for l in content) + 2 * PAD
-    w = max(need, inner or 0)
-    if odd and (w + 2) % 2 == 0:
-        w += 1
-    lines = ['┌' + '─' * w + '┐']
-    for i, l in enumerate(content):
-        if i < len(titles):
-            lines.append('│' + l.center(w) + '│')
-        else:
-            lines.append('│' + (' ' * PAD + l).ljust(w) + '│')
-    lines.append('└' + '─' * w + '┘')
-    return lines
-
-
-def equalize(a, b):
-    """Pad the shorter box with blank rows above its bottom border."""
-    while len(a) < len(b):
-        a.insert(-1, '│' + ' ' * (len(a[0]) - 2) + '│')
-    while len(b) < len(a):
-        b.insert(-1, '│' + ' ' * (len(b[0]) - 2) + '│')
-
-
-def put(row, col, s):
-    """Overlay string s onto row (a list of chars) at col."""
-    row[col:col + len(s)] = list(s)
-
-
-def build_diagram():
-    # main boxes, forced to equal width and height
-    left_body = table([(p, d) for p, d in PAGES])
-    right_body = table([(m, r, d) for m, r, d, _ in ROUTES])
-    tagged = []
-    for line, (_, _, _, tag) in zip(right_body, ROUTES):
-        tagged.append((line, '▸ ' + tag if tag else ''))
-    body_w = max(len(l) for l, _ in tagged)
-    right_body = [(l.ljust(body_w + 2) + t) if t else l for l, t in tagged]
-
-    L_TITLES = ['github pages · static site', 'repo Lasimeri/lasimeri.github.io']
-    R_TITLES = ['crystal · cloudflare worker', 'worker/src/index.ts · 60 req/min/ip']
-    W = max(len(box(L_TITLES, left_body)[0]), len(box(R_TITLES, right_body)[0]))
-    W += (W % 2 == 0)          # odd width: each main box has an exact center column
-    lbox = box(L_TITLES, left_body, inner=W - 2)
-    rbox = box(R_TITLES, right_body, inner=W - 2)
-    equalize(lbox, rbox)
-
-    TOTAL = 2 * W + GAP        # odd + odd + odd GAP keeps TOTAL odd: exact canvas center
-    CL = W // 2
-    CR = TOTAL - 1 - CL        # mirror of CL: elbows come out perfectly symmetric
-
-    lines = []
-
-    # tier 1: browser, centered; stem column derived from its placement
-    bro = box(['your browser'], [], inner=23, odd=True)
-    bpad = (TOTAL - len(bro[0])) // 2
-    stem = bpad + len(bro[0]) // 2
-    lines.append(' ' * bpad + bro[0])
-    lines.append(' ' * bpad + bro[1])
-    bot = list(' ' * bpad + bro[2])
-    bot[stem] = '┬'
-    lines.append(''.join(bot))
-    lines.append(' ' * stem + '│  https')
-
-    # tier 2: dns zone, centered, ┴ aligned to the browser stem
-    zone = box(['seaof.glass', 'cloudflare dns zone'], [], inner=27, odd=True)
-    zpad = (TOTAL - len(zone[0])) // 2
-    zw = len(zone[0])
-    top = list(' ' * zpad + zone[0])
-    top[stem] = '┴'
-    lines.append(''.join(top))
-    for l in zone[1:-1]:
-        lines.append(' ' * zpad + l)
-    m = zw // 4                       # symmetric drop points on the bottom border
-    c1 = zpad + m
-    c2 = TOTAL - 1 - c1               # mirror of c1 across the canvas center
-    zbot = list(' ' * zpad + zone[-1])
-    zbot[c1] = '┬'
-    zbot[c2] = '┬'
-    lines.append(''.join(zbot))
-
-    # labeled stems, then elbows out to each main box center
-    assert stem == TOTAL // 2, 'browser stem must sit on the canvas center'
-    assert c1 - CL == CR - c2, 'elbow runs must be mirror-symmetric'
-
-    row = [' '] * TOTAL
-    lab_l, lab_r = 'static GET /* ', ' api GET|POST /s/*'
-    put(row, c1 - len(lab_l), lab_l)
-    row[c1] = '│'
-    row[c2] = '│'
-    put(row, c2 + 1, lab_r)
-    lines.append(''.join(row).rstrip())
-
-    row = [' '] * TOTAL
-    row[CL] = '┌'
-    for i in range(CL + 1, c1):
-        row[i] = '─'
-    row[c1] = '┘'
-    row[c2] = '└'
-    for i in range(c2 + 1, CR):
-        row[i] = '─'
-    row[CR] = '┐'
-    lines.append(''.join(row).rstrip())
-    for ch in ('│', '▼'):
-        row = [' '] * TOTAL
-        row[CL] = ch
-        row[CR] = ch
-        lines.append(''.join(row).rstrip())
-
-    # tier 3: the two main boxes; r2/ext stems drop from the worker box border
-    r2box = box([R2_BOX[0]], R2_BOX[1], odd=True)
-    exbox = box([EXT_BOX[0]], EXT_BOX[1], odd=True)
-    equalize(r2box, exbox)
-    sub_w = len(r2box[0]) + SUBGAP + len(exbox[0])
-    sub_start = W + GAP + (W - sub_w) // 2
-    d1 = sub_start + len(r2box[0]) // 2
-    d2 = sub_start + len(r2box[0]) + SUBGAP + len(exbox[0]) // 2
-    assert W + GAP < d1 < d2 < TOTAL - 1, 'stems must fall inside the worker box'
-
-    for i in range(len(lbox)):
-        l, r = lbox[i], rbox[i]
-        if i == len(lbox) - 1:
-            r = list(r)
-            r[d1 - (W + GAP)] = '┬'
-            r[d2 - (W + GAP)] = '┬'
-            r = ''.join(r)
-        lines.append(l + ' ' * GAP + r)
-
-    for ch in ('│', '▼'):
-        row = [' '] * TOTAL
-        row[d1] = ch
-        row[d2] = ch
-        lines.append(''.join(row).rstrip())
-
-    # tier 4: storage and external boxes, centered under their stems
-    for i in range(len(r2box)):
-        row = [' '] * TOTAL
-        put(row, sub_start, r2box[i])
-        put(row, sub_start + len(r2box[0]) + SUBGAP, exbox[i])
-        lines.append(''.join(row).rstrip())
-
-    return '\n'.join(l.rstrip() for l in lines)
+def build_routes():
+    body = table([(m, r, d) for m, r, d, _ in ROUTES])
+    tagged = [(l, '▸ ' + t if t else '') for l, (_, _, _, t) in zip(body, ROUTES)]
+    bw = max(len(l) for l, _ in tagged)
+    out = ['crystal routes · https://seaof.glass/s/*', '']
+    for l, t in tagged:
+        out.append('  ' + (l.ljust(bw + 3) + t if t else l))
+    return '\n'.join(out)
 
 
 def build_flows():
@@ -318,10 +339,12 @@ def colorize(text):
     for line in text.split('\n'):
         l = html.escape(line, quote=False)
         for t in TITLES:
-            l = re.sub(r'(?<![\w·])' + re.escape(t) + r'(?![\w·])',
+            l = re.sub(r'(?<![-\w·])' + re.escape(t) + r'(?![-\w·])',
                        lambda mm: '<span class="h">' + mm.group(0) + '</span>', l)
-        l = re.sub(r'([┌┐└┘┬┴│─]+)', r'<span class="b">\1</span>', l)
-        l = re.sub(r'([▼▶▸])', r'<span class="a">\1</span>', l)
+        l = re.sub(r'([╔╗╚╝║═╤╧╟╢]+)', r'<span class="d">\1</span>', l)
+        l = re.sub(r'([┌┐└┘┬┴│─┼]+)', r'<span class="b">\1</span>', l)
+        l = re.sub(r'([┆]+)', r'<span class="a">\1</span>', l)
+        l = re.sub(r'([▼▶▸◀])', r'<span class="a">\1</span>', l)
         l = re.sub(r'\b(GET|POST)\b', r'<span class="m">\1</span>', l)
         out.append(l)
     return '\n'.join(out)
@@ -338,7 +361,8 @@ CSS = """\
       --text-dim: #8a6a3e;
       --accent: #c4945a;
       --bright: #e2b273;
-      --frame: #4a3b25;
+      --frame: #453720;
+      --frame2: #6b5433;
       --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -382,6 +406,7 @@ CSS = """\
       overflow-x: auto;
     }
     .diagram .b { color: var(--frame); }
+    .diagram .d { color: var(--frame2); }
     .diagram .a { color: var(--bright); }
     .diagram .m { color: var(--bright); }
     .diagram .h { color: var(--bright); text-shadow: 0 0 14px rgba(226, 178, 115, 0.25); }
@@ -412,6 +437,7 @@ CSS = """\
 
 def build_page():
     diagram = colorize(build_diagram())
+    routes = colorize(build_routes())
     flows = colorize(build_flows())
     roles = '\n'.join(
         f'''      <div class="role">
@@ -440,6 +466,11 @@ def build_page():
     <div class="section-label">&mdash;&mdash; the map &mdash;&mdash;</div>
     <pre class="diagram">
 {diagram}
+</pre>
+
+    <div class="section-label">&mdash;&mdash; routes &mdash;&mdash;</div>
+    <pre class="diagram">
+{routes}
 </pre>
 
     <div class="section-label">&mdash;&mdash; flows &mdash;&mdash;</div>
@@ -473,20 +504,9 @@ def build_sitemap_xml():
 '''
 
 
-# ── checks + write ──────────────────────────────────────────────────────────
-
-def verify(diagram_text):
-    lines = diagram_text.split('\n')
-    for l in lines:
-        for a, b in (('┌', '┐'), ('└', '┘')):
-            if a in l:
-                assert l.count(a) == l.count(b), f'unbalanced corners: {l!r}'
-    assert '\u2014' not in diagram_text, 'em-dash in diagram'
-
-
 if __name__ == '__main__':
     plain = build_diagram()
-    verify(plain)
+    assert '\u2014' not in plain, 'em-dash in diagram'
     page = build_page()
     assert '\u2014' not in page, 'em-dash in page'
     with open('sitemap/index.html', 'w') as f:

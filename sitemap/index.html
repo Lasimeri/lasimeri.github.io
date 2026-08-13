@@ -15,12 +15,16 @@
       --text: #c4945a;
       --text-dim: #8a6a3e;
       --accent: #c4945a;
+      --bright: #e2b273;
+      --frame: #4a3b25;
       --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: var(--mono);
       background: var(--bg);
+      background-image: radial-gradient(1100px 500px at 50% -120px, #131320 0%, var(--bg) 65%);
+      background-repeat: no-repeat;
       color: var(--text);
       min-height: 100vh;
       display: flex;
@@ -37,7 +41,7 @@
     }
     h1 a { color: var(--accent); text-decoration: none; }
     h1 a:hover { text-decoration: underline; }
-    .subtitle { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .subtitle { font-size: 0.7rem; color: var(--text-dim); font-style: italic; opacity: 0.8; margin-bottom: 2rem; }
     .section-label {
       font-size: 0.65rem;
       color: var(--text-dim);
@@ -47,16 +51,21 @@
     }
     pre.diagram {
       font-size: 0.68rem;
-      line-height: 1.35;
+      line-height: 1.4;
       color: var(--text);
       background: var(--surface);
+      background-image: radial-gradient(900px 300px at 50% 0%, rgba(196, 148, 90, 0.035) 0%, transparent 70%);
       border: 1px solid var(--border);
-      padding: 1.25rem;
+      padding: 1.5rem;
       overflow-x: auto;
     }
+    .diagram .b { color: var(--frame); }
+    .diagram .a { color: var(--bright); }
+    .diagram .m { color: var(--bright); }
+    .diagram .h { color: var(--bright); text-shadow: 0 0 14px rgba(226, 178, 115, 0.25); }
     .roles {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 1px;
       background: var(--border);
       border: 1px solid var(--border);
@@ -64,7 +73,9 @@
     .role {
       background: var(--bg);
       padding: 0.9rem 1.2rem;
+      transition: background 0.15s;
     }
+    .role:hover { background: var(--surface); }
     .role-name { font-size: 0.75rem; color: var(--accent); margin-bottom: 0.3rem; }
     .role-name span { color: var(--text-dim); }
     .role-desc { font-size: 0.68rem; color: var(--text-dim); line-height: 1.7; }
@@ -81,53 +92,53 @@
 
     <div class="section-label">&mdash;&mdash; the map &mdash;&mdash;</div>
     <pre class="diagram">
-                                      ┌─────────────────────────┐
-                                      │      your browser       │
-                                      └────────────┬────────────┘
-                                                   │  https
-                                    ┌──────────────┴──────────────┐
-                                    │         seaof.glass         │
-                                    │     cloudflare dns zone     │
-                                    └───────┬─────────────┬───────┘
-                              static GET /* │             │ api GET|POST /s/*
-                       ┌────────────────────┘             └────────────────────┐
-                       │                                                       │
-                       ▼                                                       ▼
-┌─────────────────────────────────────────────┐        ┌──────────────────────────────────────────────┐
-│         github pages · static site          │        │         crystal · cloudflare worker          │
-│      repo Lasimeri/lasimeri.github.io       │        │     worker/src/index.ts · 60 req/min/ip      │
-│                                             │        │                                              │
-│   /              landing page               │        │   GET  /s/ip          your ip, echoed        │
-│   /sitemap/      this map                   │        │   GET  /s/headers     your request headers   │
-│   /ittybitty/    html-in-a-url editor       │        │   GET  /s/dns/…       doh lookup      ▸ ext  │
-│   /qii/          quake ii via wasm          │        │   GET  /s/ping/…      timed fetch     ▸ ext  │
-│   /shrtlnk/      shortener ui               │        │   GET  /s/whois/…     rdap lookup     ▸ ext  │
-│   /shrtlnk/r/    redirect splash            │        │   POST /s/go          mint short link ▸ r2   │
-│   /tools/        ip · headers · dns ·       │        │   GET  /s/go/:id      resolve link    ▸ r2   │
-│                  ping · whois · tmp         │        │   POST /s/tmp         file drop, 1 hr ▸ r2   │
-│   /tools/pgp.html   openpgp, in-browser     │        │   GET  /s/tmp/:id     fetch file      ▸ r2   │
-│   /tools/pgp/    rust→wasm pgp runtime      │        │                                              │
-└─────────────────────────────────────────────┘        └─────────┬──────────────────────────┬─────────┘
-                                                                 │                          │
-                                                                 ▼                          ▼
-                                                    ┌─────────────────────────┐ ┌───────────────────────┐
-                                                    │  r2 · sea-glass-store   │ │  cloudflare-dns.com   │
-                                                    │  short:* → target urls  │ │  rdap.org / verisign  │
-                                                    │  tmp:*   → files, 1 hr  │ │  any pinged target    │
-                                                    └─────────────────────────┘ └───────────────────────┘
+                                      <span class="b">┌─────────────────────────┐</span>
+                                      <span class="b">│</span>      <span class="h">your browser</span>       <span class="b">│</span>
+                                      <span class="b">└────────────┬────────────┘</span>
+                                                   <span class="b">│</span>  https
+                                    <span class="b">┌──────────────┴──────────────┐</span>
+                                    <span class="b">│</span>         <span class="h">seaof.glass</span>         <span class="b">│</span>
+                                    <span class="b">│</span>     <span class="h">cloudflare dns zone</span>     <span class="b">│</span>
+                                    <span class="b">└───────┬─────────────┬───────┘</span>
+                              static <span class="m">GET</span> /* <span class="b">│</span>             <span class="b">│</span> api <span class="m">GET</span>|<span class="m">POST</span> /s/*
+                       <span class="b">┌────────────────────┘</span>             <span class="b">└────────────────────┐</span>
+                       <span class="b">│</span>                                                       <span class="b">│</span>
+                       <span class="a">▼</span>                                                       <span class="a">▼</span>
+<span class="b">┌─────────────────────────────────────────────┐</span>        <span class="b">┌──────────────────────────────────────────────┐</span>
+<span class="b">│</span>         <span class="h">github pages · static site</span>          <span class="b">│</span>        <span class="b">│</span>         <span class="h">crystal · cloudflare worker</span>          <span class="b">│</span>
+<span class="b">│</span>      repo Lasimeri/lasimeri.github.io       <span class="b">│</span>        <span class="b">│</span>     worker/src/index.ts · 60 req/min/ip      <span class="b">│</span>
+<span class="b">│</span>                                             <span class="b">│</span>        <span class="b">│</span>                                              <span class="b">│</span>
+<span class="b">│</span>   /              landing page               <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/ip          your ip, echoed        <span class="b">│</span>
+<span class="b">│</span>   /sitemap/      this map                   <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/headers     your request headers   <span class="b">│</span>
+<span class="b">│</span>   /ittybitty/    html-in-a-url editor       <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/dns/…       doh lookup      <span class="a">▸</span> ext  <span class="b">│</span>
+<span class="b">│</span>   /qii/          quake ii via wasm          <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/ping/…      timed fetch     <span class="a">▸</span> ext  <span class="b">│</span>
+<span class="b">│</span>   /shrtlnk/      shortener ui               <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/whois/…     rdap lookup     <span class="a">▸</span> ext  <span class="b">│</span>
+<span class="b">│</span>   /shrtlnk/r/    redirect splash            <span class="b">│</span>        <span class="b">│</span>   <span class="m">POST</span> /s/go          mint short link <span class="a">▸</span> r2   <span class="b">│</span>
+<span class="b">│</span>   /tools/        ip · headers · dns ·       <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/go/:id      resolve link    <span class="a">▸</span> r2   <span class="b">│</span>
+<span class="b">│</span>                  ping · whois · tmp         <span class="b">│</span>        <span class="b">│</span>   <span class="m">POST</span> /s/tmp         file drop, 1 hr <span class="a">▸</span> r2   <span class="b">│</span>
+<span class="b">│</span>   /tools/pgp.html   openpgp, in-browser     <span class="b">│</span>        <span class="b">│</span>   <span class="m">GET</span>  /s/tmp/:id     fetch file      <span class="a">▸</span> r2   <span class="b">│</span>
+<span class="b">│</span>   /tools/pgp/    rust→wasm pgp runtime      <span class="b">│</span>        <span class="b">│</span>                                              <span class="b">│</span>
+<span class="b">└─────────────────────────────────────────────┘</span>        <span class="b">└─────────┬──────────────────────────┬─────────┘</span>
+                                                                 <span class="b">│</span>                          <span class="b">│</span>
+                                                                 <span class="a">▼</span>                          <span class="a">▼</span>
+                                                    <span class="b">┌─────────────────────────┐</span> <span class="b">┌───────────────────────┐</span>
+                                                    <span class="b">│</span>  <span class="h">r2 · sea-glass-store</span>   <span class="b">│</span> <span class="b">│</span>  cloudflare-dns.com   <span class="b">│</span>
+                                                    <span class="b">│</span>  short:* → target urls  <span class="b">│</span> <span class="b">│</span>  rdap.org / verisign  <span class="b">│</span>
+                                                    <span class="b">│</span>  tmp:*   → files, 1 hr  <span class="b">│</span> <span class="b">│</span>  any pinged target    <span class="b">│</span>
+                                                    <span class="b">└─────────────────────────┘</span> <span class="b">└───────────────────────┘</span>
 </pre>
 
     <div class="section-label">&mdash;&mdash; flows &mdash;&mdash;</div>
     <pre class="diagram">
-the short-link round trip
+<span class="h">the short-link round trip</span>
 
-  mint     /shrtlnk/ ── POST /s/go ──▶ crystal ── put short:id ──▶ r2
-  reply    crystal ──▶ { id, https://seaof.glass/s/go/id }
-  resolve  visitor ── GET /s/go/id ──▶ crystal ── get short:id ──▶ r2
-  land     crystal ── 302 ──▶ /shrtlnk/r/?to=target ── click-through ──▶ target
+  mint     /shrtlnk/ <span class="b">──</span> <span class="m">POST</span> /s/go <span class="b">──</span><span class="a">▶</span> crystal <span class="b">──</span> put short:id <span class="b">──</span><span class="a">▶</span> r2
+  reply    crystal <span class="b">──</span><span class="a">▶</span> { id, https://<span class="h">seaof.glass</span>/s/go/id }
+  resolve  visitor <span class="b">──</span> <span class="m">GET</span> /s/go/id <span class="b">──</span><span class="a">▶</span> crystal <span class="b">──</span> get short:id <span class="b">──</span><span class="a">▶</span> r2
+  land     crystal <span class="b">──</span> 302 <span class="b">──</span><span class="a">▶</span> /shrtlnk/r/?to=target <span class="b">──</span> click-through <span class="b">──</span><span class="a">▶</span> target
 
 
-client-side only · never talk to crystal
+<span class="h">client-side only · never talk to crystal</span>
 
   /ittybitty/   the document lives in the url fragment
   /qii/         game data cached in indexeddb

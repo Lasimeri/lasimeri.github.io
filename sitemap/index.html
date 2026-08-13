@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sitemap &mdash; sea of glass</title>
+  <meta property="og:title" content="sitemap &#8212; sea of glass">
+  <meta property="og:description" content="the site, its components, and how they fit together">
+  <meta name="theme-color" content="#0a0a0f">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #c4945a;
+      --text-dim: #8a6a3e;
+      --accent: #c4945a;
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container { max-width: 1060px; width: 100%; }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+    h1 a { color: var(--accent); text-decoration: none; }
+    h1 a:hover { text-decoration: underline; }
+    .subtitle { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 2rem; }
+    .section-label {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin: 2rem 0 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: lowercase;
+    }
+    pre.diagram {
+      font-size: 0.68rem;
+      line-height: 1.35;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      overflow-x: auto;
+    }
+    .roles {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+    .role {
+      background: var(--bg);
+      padding: 0.9rem 1.2rem;
+    }
+    .role-name { font-size: 0.75rem; color: var(--accent); margin-bottom: 0.3rem; }
+    .role-name span { color: var(--text-dim); }
+    .role-desc { font-size: 0.68rem; color: var(--text-dim); line-height: 1.7; }
+    .role-desc code { color: var(--text); font-family: var(--mono); }
+    .sep { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .footer { font-size: 0.6rem; color: var(--text-dim); opacity: 0.35; line-height: 1.8; }
+    @media (max-width: 600px) { body { padding: 1.25rem; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><a href="/">sea of glass</a> / sitemap</h1>
+    <p class="subtitle">the site, its components, and how they fit together</p>
+
+    <div class="section-label">&mdash;&mdash; the map &mdash;&mdash;</div>
+    <pre class="diagram">
+                                      ┌─────────────────────────┐
+                                      │      your browser       │
+                                      └────────────┬────────────┘
+                                                   │  https
+                                    ┌──────────────┴──────────────┐
+                                    │         seaof.glass         │
+                                    │     cloudflare dns zone     │
+                                    └───────┬─────────────┬───────┘
+                              static GET /* │             │ api GET|POST /s/*
+                       ┌────────────────────┘             └────────────────────┐
+                       │                                                       │
+                       ▼                                                       ▼
+┌─────────────────────────────────────────────┐        ┌──────────────────────────────────────────────┐
+│         github pages · static site          │        │         crystal · cloudflare worker          │
+│      repo Lasimeri/lasimeri.github.io       │        │     worker/src/index.ts · 60 req/min/ip      │
+│                                             │        │                                              │
+│   /              landing page               │        │   GET  /s/ip          your ip, echoed        │
+│   /sitemap/      this map                   │        │   GET  /s/headers     your request headers   │
+│   /ittybitty/    html-in-a-url editor       │        │   GET  /s/dns/…       doh lookup      ▸ ext  │
+│   /qii/          quake ii via wasm          │        │   GET  /s/ping/…      timed fetch     ▸ ext  │
+│   /shrtlnk/      shortener ui               │        │   GET  /s/whois/…     rdap lookup     ▸ ext  │
+│   /shrtlnk/r/    redirect splash            │        │   POST /s/go          mint short link ▸ r2   │
+│   /tools/        ip · headers · dns ·       │        │   GET  /s/go/:id      resolve link    ▸ r2   │
+│                  ping · whois · tmp         │        │   POST /s/tmp         file drop, 1 hr ▸ r2   │
+│   /tools/pgp.html   openpgp, in-browser     │        │   GET  /s/tmp/:id     fetch file      ▸ r2   │
+│   /tools/pgp/    rust→wasm pgp runtime      │        │                                              │
+└─────────────────────────────────────────────┘        └─────────┬──────────────────────────┬─────────┘
+                                                                 │                          │
+                                                                 ▼                          ▼
+                                                    ┌─────────────────────────┐ ┌───────────────────────┐
+                                                    │  r2 · sea-glass-store   │ │  cloudflare-dns.com   │
+                                                    │  short:* → target urls  │ │  rdap.org / verisign  │
+                                                    │  tmp:*   → files, 1 hr  │ │  any pinged target    │
+                                                    └─────────────────────────┘ └───────────────────────┘
+</pre>
+
+    <div class="section-label">&mdash;&mdash; flows &mdash;&mdash;</div>
+    <pre class="diagram">
+the short-link round trip
+
+  mint     /shrtlnk/ ── POST /s/go ──▶ crystal ── put short:id ──▶ r2
+  reply    crystal ──▶ { id, https://seaof.glass/s/go/id }
+  resolve  visitor ── GET /s/go/id ──▶ crystal ── get short:id ──▶ r2
+  land     crystal ── 302 ──▶ /shrtlnk/r/?to=target ── click-through ──▶ target
+
+
+client-side only · never talk to crystal
+
+  /ittybitty/   the document lives in the url fragment
+  /qii/         game data cached in indexeddb
+  /tools/pgp    keys and plaintext never leave the tab
+</pre>
+
+    <div class="section-label">&mdash;&mdash; roles &mdash;&mdash;</div>
+    <div class="roles">
+      <div class="role">
+        <div class="role-name">/ <span>· landing</span></div>
+        <div class="role-desc">the front door. one hand-written page, inline css, zero javascript. links to everything below and nothing else.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">/sitemap/ <span>· this page</span></div>
+        <div class="role-desc">the map you are reading. static like everything else on the pages side.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">/ittybitty/ <span>· the url is the document</span></div>
+        <div class="role-desc">an editor whose files live entirely in the link: content is lzma-compressed (and optionally encrypted) into the url fragment, so sharing the link <em>is</em> publishing. codemirror for editing, marked for markdown preview, qr export for handing a whole document to a phone, and a service worker that makes it installable and offline-capable. no server ever sees a byte of the document, because the fragment never leaves the browser.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">/qii/ <span>· quake ii</span></div>
+        <div class="role-desc">the qwasm2 engine compiled to webassembly, with gl1, gles3, and software renderers. jszip unpacks game data in the browser and indexeddb (<code>qii-assets</code>) caches the pak files, so the download happens once. after the first load it is a local game that happens to live at a url.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">/shrtlnk/ <span>· url shortener</span></div>
+        <div class="role-desc">the ui posts a url to <code>/s/go</code> and gets back <code>seaof.glass/s/go/:id</code>. resolving a short link never jumps straight to the target: crystal 302s to the <code>/shrtlnk/r/</code> splash, which previews the destination behind a disclaimer and a deliberate click-through. no blind redirects.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">/tools/ <span>· seven single-file utilities</span></div>
+        <div class="role-desc"><code>ip</code>, <code>headers</code>, <code>dns</code>, <code>ping</code>, and <code>whois</code> are thin fronts for the matching <code>/s/*</code> route: the worker either reflects what it sees (your ip, your headers) or asks the outside world on your behalf (doh, rdap, a timed fetch). <code>tmp</code> drops a file into r2 with a one-hour expiry. <code>pgp</code> is the odd one out: it needs no server at all.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">/tools/pgp/ <span>· openpgp runtime</span></div>
+        <div class="role-desc">rust (the rPGP crate) compiled to wasm, executed inside a web worker so rsa-4096 keygen does not freeze the tab. keygen, encrypt, and decrypt all run locally; keys and plaintext never leave the page. the rust source ships alongside the built wasm, so the artifact is reproducible.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">crystal <span>· cloudflare worker</span></div>
+        <div class="role-desc">the only server code on the site: one typescript file behind <code>seaof.glass/s/*</code>. nine routes, rate-limited to 60 requests a minute per ip, cors locked to the site origin. it holds no logic beyond what the static pages cannot do themselves: reflecting network facts, fetching cross-origin, and touching storage.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">r2 <span>· sea-glass-store</span></div>
+        <div class="role-desc">the only state anywhere. <code>short:*</code> keys map ids to target urls and live forever; <code>tmp:*</code> keys hold uploads stamped with an expiry that is checked, and purged, on read. everything else on the site is stateless or client-side.</div>
+      </div>
+      <div class="role">
+        <div class="role-name">the repo <span>· Lasimeri/lasimeri.github.io</span></div>
+        <div class="role-desc">both halves live in one repository. a push to <code>main</code> republishes the static site through github pages; <code>wrangler deploy</code> in <code>worker/</code> republishes crystal. the two deploys are independent and meet only at the <code>/s/*</code> fetch boundary.</div>
+      </div>
+    </div>
+
+    <hr class="sep">
+    <div class="footer">
+      &copy; 2025 sea of glass · <a href="/" style="color: var(--accent); text-decoration: none;">home</a>
+    </div>
+  </div>
+</body>
+</html>

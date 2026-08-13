@@ -32,7 +32,7 @@
       justify-content: center;
       padding: 2rem;
     }
-    .container { max-width: 1060px; width: 100%; }
+    .container { max-width: 900px; width: 100%; }
     h1 {
       font-size: 1.1rem;
       font-weight: 400;
@@ -50,38 +50,44 @@
       letter-spacing: 0.1em;
       text-transform: lowercase;
     }
-    pre.diagram {
-      font-size: 0.68rem;
-      line-height: 1.4;
-      color: var(--text);
+    .tree {
+      font-size: 0.72rem;
+      line-height: 1.7;
       background: var(--surface);
       background-image: radial-gradient(900px 300px at 50% 0%, rgba(196, 148, 90, 0.035) 0%, transparent 70%);
       border: 1px solid var(--border);
-      padding: 1.5rem;
+      padding: 1.25rem 1.5rem;
       overflow-x: auto;
     }
-    .diagram .b { color: var(--frame); }
-    .diagram .d { color: var(--frame2); }
-    .diagram .a { color: var(--bright); }
-    .diagram .m { color: var(--bright); }
-    .diagram .h { color: var(--bright); text-shadow: 0 0 14px rgba(226, 178, 115, 0.25); }
-    .roles {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
+    .tree .root {
+      white-space: pre;
+      margin-bottom: 0.35rem;
     }
-    .role {
-      background: var(--bg);
-      padding: 0.9rem 1.2rem;
-      transition: background 0.15s;
+    .tree .h { color: var(--bright); text-shadow: 0 0 14px rgba(226, 178, 115, 0.25); }
+    .tree summary {
+      list-style: none;
+      cursor: pointer;
+      white-space: pre;
     }
-    .role:hover { background: var(--surface); }
-    .role-name { font-size: 0.75rem; color: var(--accent); margin-bottom: 0.3rem; }
-    .role-name span { color: var(--text-dim); }
-    .role-desc { font-size: 0.68rem; color: var(--text-dim); line-height: 1.7; }
-    .role-desc code { color: var(--text); font-family: var(--mono); }
+    .tree summary::-webkit-details-marker { display: none; }
+    .tree summary .caret::before { content: '▸ '; color: var(--bright); }
+    .tree details[open] > summary .caret::before { content: '▾ '; }
+    .tree summary:hover .lbl { color: var(--bright); }
+    .tree .b { color: var(--frame2); }
+    .tree .m { color: var(--bright); }
+    .tree .lbl { color: var(--text); }
+    .tree .hint { color: var(--text-dim); }
+    .tree .nd {
+      white-space: normal;
+      color: var(--text-dim);
+      line-height: 1.7;
+      max-width: 60ch;
+      border-left: 1px solid var(--border);
+      padding: 0.3rem 0 0.3rem 1rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .tree .nd code, .tree .nd em { color: var(--text); font-style: normal; }
     .sep { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
     .footer { font-size: 0.6rem; color: var(--text-dim); opacity: 0.35; line-height: 1.8; }
     .footer a { color: var(--accent); text-decoration: none; }
@@ -95,121 +101,66 @@
     <p class="subtitle">the site, its components, and how they fit together</p>
 
     <div class="section-label">&mdash;&mdash; the map &mdash;&mdash;</div>
-    <pre class="diagram">
-                                       <span class="d">╔═════════════════════╗</span>
-                                       <span class="d">║</span>     <span class="h">your browser</span>    <span class="d">║</span>
-                                       <span class="d">╚══════════╤══════════╝</span>
-                                                  <span class="b">│</span>  https
-                                     <span class="d">╔════════════╧════════════╗</span>
-                                     <span class="d">║</span>       <span class="h">seaof.glass</span>       <span class="d">║</span>
-                                     <span class="d">║</span>   <span class="h">cloudflare dns zone</span>   <span class="d">╟</span><span class="b">───────────────</span> /s/* <span class="b">──────────────┐</span>
-                                     <span class="d">╚════════════╤════════════╝</span>                                   <span class="b">│</span>
-                                         <span class="m">GET</span> /*   <span class="b">│</span>                                                <span class="b">│</span>
-                                                  <span class="b">│</span>                                                <span class="b">│</span>
-                              <span class="b">┌───────────────────┴───────────────────┐</span>                            <span class="b">│</span>
-                              <span class="b">│</span>       <span class="h">github pages · static site</span>      <span class="b">│</span>                            <span class="b">│</span>
-                              <span class="b">│</span>    repo Lasimeri/lasimeri.github.io   <span class="b">│</span>                            <span class="b">│</span>
-                              <span class="b">└───────────────────┬───────────────────┘</span>                            <span class="b">│</span>
-       <span class="b">┌───────────────┬───────────────┬──────────┴────┬───────────────┬───────────────┐</span>           <span class="b">│</span>
-       <span class="b">│</span>               <span class="b">│</span>               <span class="b">│</span>               <span class="b">│</span>               <span class="b">│</span>               <span class="b">│</span>           <span class="b">│</span>
-<span class="b">┌──────┴──────┐</span> <span class="b">┌──────┴──────┐</span> <span class="b">┌──────┴──────┐</span> <span class="b">┌──────┴──────┐</span> <span class="b">┌──────┴──────┐</span> <span class="b">┌──────┴──────┐</span>    <span class="b">│</span>
-<span class="b">│</span>      /      <span class="b">│</span> <span class="b">│</span>  <span class="h">/sitemap/</span>  <span class="b">│</span> <span class="b">│</span> <span class="h">/ittybitty/</span> <span class="b">│</span> <span class="b">│</span>    <span class="h">/qii/</span>    <span class="b">│</span> <span class="b">│</span>  <span class="h">/shrtlnk/</span>  <span class="b">│</span> <span class="b">│</span>   <span class="h">/tools/</span>   <span class="b">│</span>    <span class="b">│</span>
-<span class="b">│</span>   landing   <span class="b">│</span> <span class="b">│</span>   this map  <span class="b">│</span> <span class="b">│</span>  url = doc  <span class="b">│</span> <span class="b">│</span>   quake ii  <span class="b">│</span> <span class="b">│</span>  shortener  <span class="b">│</span> <span class="b">│</span>   7 utils   <span class="b">│</span>    <span class="b">│</span>
-<span class="b">└─────────────┘</span> <span class="b">└─────────────┘</span> <span class="b">└─────────────┘</span> <span class="b">└─────────────┘</span> <span class="b">└──────┬──────┘</span> <span class="b">└──────┬──────┘</span>    <span class="b">│</span>
-                                                          fetch /s/*   <span class="a">┆</span>               <span class="a">┆</span>           <span class="b">│</span>
-                                                                       <span class="a">┆</span>               <span class="a">┆</span>       <span class="b">┌───┘</span>
-                                                           <span class="d">╔═══════════╧═══════════════╧═══════╧═══════╗</span>
-                                                           <span class="d">║</span>        <span class="h">crystal · cloudflare worker</span>        <span class="d">║</span>
-                                                           <span class="d">║</span>    worker/src/index.ts · 60 req/min/ip    <span class="d">║</span>
-      client-side only:                                    <span class="d">║</span>                                           <span class="d">║</span>
-      <span class="h">/ittybitty/</span> · <span class="h">/qii/</span> · /tools/pgp                     <span class="d">║</span>   reflect   /s/ip · /s/headers            <span class="d">║</span>
-      never talk to crystal                                <span class="d">║</span>   lookup    /s/dns · /s/ping · /s/whois   <span class="d">║</span>
-                                                           <span class="d">║</span>   store     /s/go · /s/tmp                <span class="d">║</span>
-                                                           <span class="d">╚════╤═══════════════════════════╤══════════╝</span>
-                                                                <span class="b">│</span>                           <span class="b">│</span>
-                                                   <span class="b">┌────────────┴────────────┐</span>  <span class="b">┌───────────┴───────────┐</span>
-                                                   <span class="b">│</span>   <span class="h">r2 · sea-glass-store</span>  <span class="b">│</span>  <span class="b">│</span>   <span class="h">external services</span>   <span class="b">│</span>
-                                                   <span class="b">│</span>                         <span class="b">│</span>  <span class="b">│</span>                       <span class="b">│</span>
-                                                   <span class="b">│</span>  short:* → target urls  <span class="b">│</span>  <span class="b">│</span>  cloudflare-dns.com   <span class="b">│</span>
-                                                   <span class="b">│</span>  tmp:*   → files, 1 hr  <span class="b">│</span>  <span class="b">│</span>  rdap.org / verisign  <span class="b">│</span>
-                                                   <span class="b">│</span>                         <span class="b">│</span>  <span class="b">│</span>  any pinged target    <span class="b">│</span>
-                                                   <span class="b">└─────────────────────────┘</span>  <span class="b">└───────────────────────┘</span>
-</pre>
-
-    <div class="section-label">&mdash;&mdash; routes &mdash;&mdash;</div>
-    <pre class="diagram">
-crystal routes · https://<span class="h">seaof.glass</span>/s/*
-
-  <span class="m">GET</span>    /s/ip        your ip, echoed back
-  <span class="m">GET</span>    /s/headers   your request headers
-  <span class="m">GET</span>    /s/dns/…     doh lookup             <span class="a">▸</span> ext
-  <span class="m">GET</span>    /s/ping/…    timed fetch            <span class="a">▸</span> ext
-  <span class="m">GET</span>    /s/whois/…   rdap lookup            <span class="a">▸</span> ext
-  <span class="m">POST</span>   /s/go        mint short link        <span class="a">▸</span> r2
-  <span class="m">GET</span>    /s/go/:id    resolve link           <span class="a">▸</span> r2
-  <span class="m">POST</span>   /s/tmp       file drop, 1 hr        <span class="a">▸</span> r2
-  <span class="m">GET</span>    /s/tmp/:id   fetch dropped file     <span class="a">▸</span> r2
-</pre>
-
-    <div class="section-label">&mdash;&mdash; flows &mdash;&mdash;</div>
-    <pre class="diagram">
-<span class="h">the short-link round trip</span>
-
-  mint      <span class="h">/shrtlnk/</span> <span class="b">──</span> <span class="m">POST</span> /s/go <span class="b">──</span><span class="a">▶</span> crystal <span class="b">──</span> put short:id <span class="b">──</span><span class="a">▶</span> r2
-  reply     crystal <span class="b">──</span><span class="a">▶</span> { id, https://<span class="h">seaof.glass</span>/s/go/id }
-  resolve   visitor <span class="b">──</span> <span class="m">GET</span> /s/go/id <span class="b">──</span><span class="a">▶</span> crystal <span class="b">──</span> get short:id <span class="b">──</span><span class="a">▶</span> r2
-  land      crystal <span class="b">──</span> 302 <span class="b">──</span><span class="a">▶</span> /shrtlnk/r/?to=target <span class="b">──</span> click-through <span class="b">──</span><span class="a">▶</span> target
-
-
-<span class="h">client-side only · never talk to crystal</span>
-
-  <span class="h">/ittybitty/</span>   the document lives in the url fragment
-  <span class="h">/qii/</span>         game data cached in indexeddb
-  /tools/pgp    keys and plaintext never leave the tab
-</pre>
-
-    <div class="section-label">&mdash;&mdash; roles &mdash;&mdash;</div>
-    <div class="roles">
-      <div class="role">
-        <div class="role-name">/ <span>· landing</span></div>
-        <div class="role-desc">the front door. one hand-written page, inline css, zero javascript. links to everything below and nothing else.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">/sitemap/ <span>· this page</span></div>
-        <div class="role-desc">the map you are reading, generated by <code>sitemap/build.py</code>: edit the data model, run it, commit the output. the diagram geometry is computed, never hand-aligned.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">/ittybitty/ <span>· the url is the document</span></div>
-        <div class="role-desc">an editor whose files live entirely in the link: content is lzma-compressed (and optionally encrypted) into the url fragment, so sharing the link <em>is</em> publishing. codemirror for editing, marked for markdown preview, qr export for handing a whole document to a phone, and a service worker that makes it installable and offline-capable. no server ever sees a byte of the document, because the fragment never leaves the browser.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">/qii/ <span>· quake ii</span></div>
-        <div class="role-desc">the qwasm2 engine compiled to webassembly, with gl1, gles3, and software renderers. jszip unpacks game data in the browser and indexeddb (<code>qii-assets</code>) caches the pak files, so the download happens once. after the first load it is a local game that happens to live at a url.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">/shrtlnk/ <span>· url shortener</span></div>
-        <div class="role-desc">the ui posts a url to <code>/s/go</code> and gets back <code>seaof.glass/s/go/:id</code>. resolving a short link never jumps straight to the target: crystal 302s to the <code>/shrtlnk/r/</code> splash, which previews the destination behind a disclaimer and a deliberate click-through. no blind redirects.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">/tools/ <span>· seven single-file utilities</span></div>
-        <div class="role-desc"><code>ip</code>, <code>headers</code>, <code>dns</code>, <code>ping</code>, and <code>whois</code> are thin fronts for the matching <code>/s/*</code> route: the worker either reflects what it sees (your ip, your headers) or asks the outside world on your behalf (doh, rdap, a timed fetch). <code>tmp</code> drops a file into r2 with a one-hour expiry. <code>pgp</code> is the odd one out: it needs no server at all.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">/tools/pgp/ <span>· openpgp runtime</span></div>
-        <div class="role-desc">rust (the rPGP crate) compiled to wasm, executed inside a web worker so rsa-4096 keygen does not freeze the tab. keygen, encrypt, and decrypt all run locally; keys and plaintext never leave the page. the rust source ships alongside the built wasm, so the artifact is reproducible.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">crystal <span>· cloudflare worker</span></div>
-        <div class="role-desc">the only server code on the site: one typescript file behind <code>seaof.glass/s/*</code>. nine routes in three families (reflect, lookup, store), rate-limited to 60 requests a minute per ip, cors locked to the site origin. it holds no logic beyond what the static pages cannot do themselves: reflecting network facts, fetching cross-origin, and touching storage.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">r2 <span>· sea-glass-store</span></div>
-        <div class="role-desc">the only state anywhere. <code>short:*</code> keys map ids to target urls and live forever; <code>tmp:*</code> keys hold uploads stamped with an expiry that is checked, and purged, on read. everything else on the site is stateless or client-side.</div>
-      </div>
-      <div class="role">
-        <div class="role-name">the repo <span>· Lasimeri/lasimeri.github.io</span></div>
-        <div class="role-desc">both halves live in one repository. a push to <code>main</code> republishes the static site through github pages; <code>wrangler deploy</code> in <code>worker/</code> republishes crystal. the two deploys are independent and meet only at the <code>/s/*</code> fetch boundary.</div>
-      </div>
+    <div class="tree">
+<div class="root"><span class="h">seaof.glass</span> <span class="hint">· click a node to expand it</span></div>
+<details><summary><span class="b">├── </span><span class="caret"></span><span class="lbl">github pages        </span>  <span class="hint">the static half</span></summary><div class="nd" style="margin-left: 6ch">github pages serves this repo at seaof.glass (via CNAME). a push to <code>main</code> republishes the whole site; <code>.nojekyll</code> keeps the files verbatim. everything under this node is plain files: no build step, no server, no javascript unless a page brings its own.</div>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl">/          </span>  <span class="hint">landing page</span></summary><div class="nd" style="margin-left: 10ch">the front door. one hand-written page, inline css, zero javascript. links to everything on the site and nothing else.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl">/sitemap/  </span>  <span class="hint">this page</span></summary><div class="nd" style="margin-left: 10ch">the map you are reading, generated by <code>sitemap/build.py</code>: edit the data model, run it, commit the output. the dropdowns are native html <code>&lt;details&gt;</code> elements, so the page is still zero javascript.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl">/ittybitty/</span>  <span class="hint">the url is the document</span></summary><div class="nd" style="margin-left: 10ch">an editor whose files live entirely in the link: content is lzma-compressed (and optionally encrypted) into the url fragment, so sharing the link <em>is</em> publishing. codemirror for editing, marked for markdown preview, qr export for handing a document to a phone, and a service worker that makes it installable and offline-capable. no server ever sees a byte of the document: the fragment never leaves the browser.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl">/qii/      </span>  <span class="hint">quake ii</span></summary><div class="nd" style="margin-left: 10ch">the qwasm2 engine compiled to webassembly, with gl1, gles3, and software renderers. jszip unpacks game data in the browser and indexeddb (<code>qii-assets</code>) caches the pak files, so the download happens once. after the first load it is a local game that happens to live at a url.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl">/shrtlnk/  </span>  <span class="hint">url shortener</span></summary><div class="nd" style="margin-left: 10ch">the ui posts a url to <code>/s/go</code> and gets back <code>seaof.glass/s/go/:id</code>. resolving a short link never jumps straight to the target: crystal 302s to the splash below, which previews the destination and waits for a deliberate click. no blind redirects.</div>
+<details><summary><span class="b">│   │   └── </span><span class="caret"></span><span class="lbl">/shrtlnk/r/</span>  <span class="hint">redirect splash</span></summary><div class="nd" style="margin-left: 14ch">the click-through page every short link lands on: shows the target url behind a disclaimer, sends no referrer, and is marked noindex. the deliberate click is the only way forward.</div>
+</details>
+</details>
+<details><summary><span class="b">│   └── </span><span class="caret"></span><span class="lbl">/tools/    </span>  <span class="hint">seven single-file utilities</span></summary><div class="nd" style="margin-left: 10ch">each tool is one html file. five of them are thin fronts for a matching <code>/s/*</code> route on crystal; <code>tmp</code> stores through crystal into r2; <code>pgp</code> needs no server at all.</div>
+<details><summary><span class="b">│       ├── </span><span class="caret"></span><span class="lbl">ip.html     </span>  <span class="hint">what is my ip</span></summary><div class="nd" style="margin-left: 14ch">asks <code>GET /s/ip</code>; crystal echoes the connecting ip (the <code>CF-Connecting-IP</code> header) back as plain text.</div>
+</details>
+<details><summary><span class="b">│       ├── </span><span class="caret"></span><span class="lbl">headers.html</span>  <span class="hint">request inspector</span></summary><div class="nd" style="margin-left: 14ch">asks <code>GET /s/headers</code>; crystal reflects every request header back as json, so you see exactly what a server sees.</div>
+</details>
+<details><summary><span class="b">│       ├── </span><span class="caret"></span><span class="lbl">dns.html    </span>  <span class="hint">dns lookup</span></summary><div class="nd" style="margin-left: 14ch">queries <code>GET /s/dns/:type/:domain</code>; crystal relays to cloudflare doh. allowed types: A, AAAA, MX, TXT, CNAME, NS, SOA.</div>
+</details>
+<details><summary><span class="b">│       ├── </span><span class="caret"></span><span class="lbl">ping.html   </span>  <span class="hint">http ping</span></summary><div class="nd" style="margin-left: 14ch">calls <code>GET /s/ping/:url</code>; crystal fetches the target with a 5 second abort and reports status, latency in ms, and response headers.</div>
+</details>
+<details><summary><span class="b">│       ├── </span><span class="caret"></span><span class="lbl">whois.html  </span>  <span class="hint">rdap lookup</span></summary><div class="nd" style="margin-left: 14ch">calls <code>GET /s/whois/:domain</code>; rdap via rdap.org with a verisign fallback for .com and .net.</div>
+</details>
+<details><summary><span class="b">│       ├── </span><span class="caret"></span><span class="lbl">tmp.html    </span>  <span class="hint">temp file drop</span></summary><div class="nd" style="margin-left: 14ch">uploads up to 10 mb via <code>POST /s/tmp</code> into r2. links live one hour; expired objects are purged the next time they are read.</div>
+</details>
+<details><summary><span class="b">│       └── </span><span class="caret"></span><span class="lbl">pgp.html    </span>  <span class="hint">openpgp, in-browser</span></summary><div class="nd" style="margin-left: 14ch">keygen, encrypt, and decrypt with no server involvement at all. the crypto runs in the wasm runtime below.</div>
+<details><summary><span class="b">│           └── </span><span class="caret"></span><span class="lbl">/tools/pgp/</span>  <span class="hint">rust→wasm runtime</span></summary><div class="nd" style="margin-left: 18ch">rust (the rPGP crate) compiled to wasm, executed inside a web worker so rsa-4096 keygen does not freeze the tab. keys and plaintext never leave the page. the rust source ships alongside the built wasm, so the artifact is reproducible.</div>
+</details>
+</details>
+</details>
+</details>
+<details><summary><span class="b">├── </span><span class="caret"></span><span class="lbl">crystal             </span>  <span class="hint">cloudflare worker · /s/*</span></summary><div class="nd" style="margin-left: 6ch">the only server code on the site: one typescript file (<code>worker/src/index.ts</code>) behind <code>seaof.glass/s/*</code>. rate-limited to 60 requests a minute per ip, cors locked to the site origin (plus localhost for dev). deployed with <code>wrangler deploy</code>, independent of the pages deploy. it holds no logic beyond what static pages cannot do themselves: reflecting network facts, fetching cross-origin, and touching storage.</div>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/ip               </span>  <span class="hint">reflect</span></summary><div class="nd" style="margin-left: 10ch">returns the caller's ip as plain text.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/headers          </span>  <span class="hint">reflect</span></summary><div class="nd" style="margin-left: 10ch">returns the caller's request headers as json.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/dns/:type/:domain</span>  <span class="hint">lookup</span></summary><div class="nd" style="margin-left: 10ch">doh relay to cloudflare-dns.com. allowed types: A, AAAA, MX, TXT, CNAME, NS, SOA.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/ping/:url        </span>  <span class="hint">lookup</span></summary><div class="nd" style="margin-left: 10ch">timed fetch of the target with a 5 second abort; reports status, milliseconds, and response headers.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/whois/:domain    </span>  <span class="hint">lookup</span></summary><div class="nd" style="margin-left: 10ch">rdap lookup via rdap.org, falling back to verisign for .com and .net.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">POST</span> /s/go              </span>  <span class="hint">store</span></summary><div class="nd" style="margin-left: 10ch">mints a random 6-hex-char id and stores <code>short:id → url</code> in r2.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/go/:id           </span>  <span class="hint">store</span></summary><div class="nd" style="margin-left: 10ch">resolves the id from r2 and 302s to the <code>/shrtlnk/r/</code> splash; never a blind redirect.</div>
+</details>
+<details><summary><span class="b">│   ├── </span><span class="caret"></span><span class="lbl"><span class="m">POST</span> /s/tmp             </span>  <span class="hint">store</span></summary><div class="nd" style="margin-left: 10ch">accepts up to 10 mb and stores it in r2 stamped with a one-hour expiry.</div>
+</details>
+<details><summary><span class="b">│   └── </span><span class="caret"></span><span class="lbl"><span class="m">GET</span> /s/tmp/:id          </span>  <span class="hint">store</span></summary><div class="nd" style="margin-left: 10ch">serves the stored file; expired entries answer 410 and are deleted on read.</div>
+</details>
+</details>
+<details><summary><span class="b">├── </span><span class="caret"></span><span class="lbl">r2 · sea-glass-store</span>  <span class="hint">the only state</span></summary><div class="nd" style="margin-left: 6ch">everything else on the site is stateless or client-side; this bucket is the single place data rests. <code>short:*</code> keys map ids to target urls and live forever; <code>tmp:*</code> keys hold uploads stamped with an expiry that is checked, and purged, on read.</div>
+</details>
+<details><summary><span class="b">├── </span><span class="caret"></span><span class="lbl">external services   </span>  <span class="hint">what crystal talks to</span></summary><div class="nd" style="margin-left: 6ch">the outside world, reached only server-side by crystal on your behalf: cloudflare-dns.com for doh lookups, rdap.org and verisign for whois, and whatever target you point ping at. the browser never contacts these directly.</div>
+</details>
+<details><summary><span class="b">└── </span><span class="caret"></span><span class="lbl">the repo            </span>  <span class="hint">Lasimeri/lasimeri.github.io</span></summary><div class="nd" style="margin-left: 6ch">both halves live in one repository. a push to <code>main</code> republishes the static site through github pages; <code>wrangler deploy</code> in <code>worker/</code> republishes crystal. the two deploys are independent and meet only at the <code>/s/*</code> fetch boundary.</div>
+</details>
     </div>
 
     <hr class="sep">

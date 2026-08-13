@@ -7,9 +7,9 @@ self.onmessage = async function(e) {
   try {
     if (type === 'init') {
       self.postMessage({ id, status: 'loading module' });
-      const mod = await import('/pgp/wasm/pkg/glass_pgp.js');
+      const mod = await import('/tools/pgp/wasm/pkg/glass_pgp.js');
       self.postMessage({ id, status: 'fetching wasm' });
-      const bytes = await fetch('/pgp/wasm/pkg/glass_pgp_bg.wasm').then(r => r.arrayBuffer());
+      const bytes = await fetch('/tools/pgp/wasm/pkg/glass_pgp_bg.wasm').then(r => r.arrayBuffer());
       self.postMessage({ id, status: 'compiling wasm' });
       // Compile async first, then initSync with the compiled module
       const compiled = await WebAssembly.compile(bytes);

@@ -127,7 +127,7 @@
   </div>
 
   <script>
-    var worker = new Worker('/pgp/pgp-worker.js', { type: 'module' });
+    var worker = new Worker('/tools/pgp/pgp-worker.js', { type: 'module' });
     var wasmReady = false;
     var pendingCallbacks = {};
     var nextId = 0;

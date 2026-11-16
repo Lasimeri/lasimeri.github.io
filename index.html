@@ -1,290 +1,37 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>sea of glass</title>
-  <meta property="og:title" content="sea of glass">
-  <meta property="og:description" content="And before the throne there was a sea of glass like unto crystal">
-  <meta property="og:type" content="website">
-  <meta name="theme-color" content="#0a0a0f">
-  <style>
-    :root {
-      --bg: #0a0a0f;
-      --surface: #12121a;
-      --border: #1e1e2e;
-      --text: #c4945a;
-      --text-dim: #8a6a3e;
-      --accent: #c4945a;
-      --accent-dim: #7a5c38;
-      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: var(--mono);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .container {
-      max-width: 700px;
-      width: 100%;
-    }
-
-    /* Header */
-    header {
-      margin-bottom: 2.5rem;
-    }
-
-    h1 {
-      font-size: 1.1rem;
-      font-weight: 400;
-      color: var(--accent);
-      margin-bottom: 0.5rem;
-      letter-spacing: 0.05em;
-    }
-
-    .verse {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      opacity: 0.6;
-      line-height: 1.6;
-      font-style: italic;
-    }
-
-    .verse em {
-      display: block;
-      margin-top: 0.2rem;
-      font-style: normal;
-      opacity: 0.8;
-    }
-
-    /* Separator */
-    .sep {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 2rem 0;
-    }
-
-    /* Section labels */
-    .section-label {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      margin-bottom: 0.75rem;
-      letter-spacing: 0.1em;
-      text-transform: lowercase;
-    }
-
-    /* Project cards */
-    .projects {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-      margin-bottom: 2rem;
-    }
-
-    .project {
-      background: var(--bg);
-      padding: 1rem 1.2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      text-decoration: none;
-      transition: background 0.15s;
-    }
-
-    .project:hover {
-      background: var(--surface);
-    }
-
-    .project-name {
-      font-size: 0.8rem;
-      color: var(--text);
-      letter-spacing: 0.02em;
-    }
-
-    .project-name span {
-      color: var(--accent);
-    }
-
-    .project-desc {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      text-align: right;
-      flex-shrink: 0;
-      margin-left: 1rem;
-    }
-
-    /* About block */
-    .about {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      line-height: 1.8;
-      margin-bottom: 2rem;
-    }
-
-    .about p {
-      margin-bottom: 0.75rem;
-    }
-
-    .about a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    .about a:hover {
-      text-decoration: underline;
-    }
-
-    /* Status line */
-    .status-line {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      font-size: 0.6rem;
-      color: var(--text-dim);
-      opacity: 0.4;
-      margin-bottom: 2rem;
-    }
-
-    .status-line span::before {
-      content: '';
-      display: inline-block;
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--accent-dim);
-      margin-right: 0.4rem;
-      vertical-align: middle;
-    }
-
-    /* Footer */
-    .footer {
-      font-size: 0.6rem;
-      color: var(--text-dim);
-      opacity: 0.35;
-      line-height: 1.8;
-    }
-
-    .footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    .footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* Responsive */
-    @media (max-width: 600px) {
-      body { padding: 1.25rem; }
-
-      .project {
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-
-      .project-desc {
-        text-align: left;
-        margin-left: 0;
-      }
-
-      .status-line {
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="sea of glass: a collaborative development service where admins and their LLM agents work on whole codebases through one JSON API, MCP and git.">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.seaof.glass https://staging-api.seaof.glass; img-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<title>sea of glass</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+<script src="/app.js" defer></script>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>sea of glass</h1>
-      <p class="verse">
-        "And before the throne there was a sea of glass like unto crystal"
-        <em>Revelation 4:6</em>
-      </p>
-    </header>
-
-    <div class="section-label">&mdash;&mdash; projects &mdash;&mdash;</div>
-    <div class="projects">
-      <a href="/qii/" class="project">
-        <div class="project-name"><span>/</span>qii</div>
-        <div class="project-desc">quake ii in the browser via qwasm2</div>
-      </a>
-      <a href="/ittybitty/" class="project">
-        <div class="project-name"><span>/</span>ittybitty</div>
-        <div class="project-desc">the URL is the document</div>
-      </a>
-    </div>
-
-    <div class="section-label">&mdash;&mdash; tools &mdash;&mdash;</div>
-    <div class="projects">
-      <a href="/tools/ip.html" class="project">
-        <div class="project-name"><span>/</span>ip</div>
-        <div class="project-desc">what's my ip</div>
-      </a>
-      <a href="/tools/headers.html" class="project">
-        <div class="project-name"><span>/</span>headers</div>
-        <div class="project-desc">request headers inspector</div>
-      </a>
-      <a href="/tools/dns.html" class="project">
-        <div class="project-name"><span>/</span>dns</div>
-        <div class="project-desc">dns lookup</div>
-      </a>
-      <a href="/tools/ping.html" class="project">
-        <div class="project-name"><span>/</span>ping</div>
-        <div class="project-desc">http ping with timing</div>
-      </a>
-      <a href="/tools/whois.html" class="project">
-        <div class="project-name"><span>/</span>whois</div>
-        <div class="project-desc">rdap domain lookup</div>
-      </a>
-      <a href="/shrtlnk/" class="project">
-        <div class="project-name"><span>/</span>shrtlnk</div>
-        <div class="project-desc">url shortener</div>
-      </a>
-      <a href="/tools/tmp.html" class="project">
-        <div class="project-name"><span>/</span>tmp</div>
-        <div class="project-desc">temp file drop (1hr)</div>
-      </a>
-      <a href="/tools/pgp.html" class="project">
-        <div class="project-name"><span>/</span>pgp</div>
-        <div class="project-desc">openpgp keygen, encrypt, decrypt</div>
-      </a>
-    </div>
-
-    <hr class="sep">
-
-    <div class="section-label">&mdash;&mdash; about &mdash;&mdash;</div>
-    <div class="about">
-      <p>
-        a collection of things built and hosted at the edge of the crystal sea.
-        everything here runs in your browser, on your hardware, under your control.
-      </p>
-    </div>
-
-    <div class="status-line">
-      <span>static &mdash; no tracking</span>
-      <span>github pages</span>
-      <span>seaof.glass</span>
-    </div>
-
-    <hr class="sep">
-
-    <div class="footer">
-      &copy; 2025-2027 sea of glass · <a href="/sitemap/">sitemap</a><br>
-      "and them that had gotten the victory... stand on the sea of glass, having the harps of god."
-      &mdash; revelation 15:2
-    </div>
-  </div>
+<a class="skip" href="#app">Skip to content</a>
+<canvas id="sea" class="sea" aria-hidden="true"></canvas>
+<header class="site-header">
+  <a class="wordmark" href="#/" aria-label="sea of glass, home">sea of glass</a>
+  <nav class="site-nav" id="site-nav" aria-label="Primary"></nav>
+</header>
+<main id="app" class="app" tabindex="-1">
+  <p class="boot">Loading the sea of glass.</p>
+</main>
+<p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
+<footer class="site-footer">
+  <nav aria-label="Reference">
+    <a href="/docs.html">Docs</a>
+    <a href="/llms.txt">llms.txt</a>
+    <a href="/openapi.json">openapi.json</a>
+    <a href="https://api.seaof.glass/v1">API</a>
+  </nav>
+  <p class="muted">Revelation 4:6 "a sea of glass like unto crystal". Revelation 15:2 "a sea of glass mingled with fire".</p>
+</footer>
+<noscript><p class="notice">sea of glass needs JavaScript for the admin interface. The API, MCP and git endpoints work without it.</p></noscript>
 </body>
 </html>

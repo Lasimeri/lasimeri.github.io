@@ -288,3 +288,28 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   /* the sea draws one still frame under reduced motion (see src/sea.ts) */
   * { animation: none !important; transition: none !important; }
 }
+
+/* read-only (panic) switch: a full-width strip in the header, shown only while writes are refused */
+.service-banner {
+  flex: 1 0 100%; margin: 0; padding: 8px 12px; border-left: 3px solid var(--ember-hi);
+  background: rgba(255, 179, 71, 0.10); color: var(--text); border-radius: 0 var(--radius) var(--radius) 0;
+  overflow-wrap: anywhere;
+}
+/* write forms are wrapped in a fieldset so the read-only guard can disable them in one place */
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset:disabled .btn, .btn[data-write]:disabled { cursor: not-allowed; }
+/* proposal forms and queue facts */
+.subform { margin-top: 16px; }
+legend { padding: 0; margin: 0 0 8px; }
+legend h3 { margin: 0; }
+.review-body { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 12ch; }
+.conflicts { margin: 0; padding-left: 18px; }
+/* repository rows, delete confirmation, clone URL */
+.repo-row .repo-name { min-width: 0; overflow-wrap: anywhere; }
+.confirm-delete { margin-top: 10px; padding: 12px; border: 1px solid rgba(255, 106, 61, 0.45); border-radius: 8px; }
+.disclosure { margin-top: 14px; }
+.disclosure summary { cursor: pointer; color: var(--cyan); font-weight: 600; padding: 4px 0; min-height: 24px; }
+.disclosure form { margin-top: 10px; }
+.clone { margin: 0 0 14px; }
+.clone-label { font-weight: 600; }
+.clone-url { min-width: 0; overflow-wrap: anywhere; }

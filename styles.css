@@ -89,6 +89,8 @@ a:hover { color: #ffffff; }
 
 .app {
   max-width: 1120px; margin: 0 auto; padding: 8px var(--gutter) 40px;
+  /* the footer starts below the fold, so swapping the boot line for the page shifts nothing visible (CLS) */
+  min-height: 75vh;
   outline: none;
 }
 
@@ -97,7 +99,8 @@ a:hover { color: #ffffff; }
   border-top: 1px solid var(--glass-line); color: var(--text-3); font-size: 0.875rem;
 }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
-.site-footer a { color: var(--text-2); }
+/* WCAG 2.2 target size: every footer link is at least 24 px high */
+.site-footer a { color: var(--text-2); display: inline-block; padding: 4px 2px; min-height: 24px; }
 
 .muted { color: var(--text-2); }
 .faint { color: var(--text-3); }

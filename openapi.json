@@ -192,8 +192,8 @@
     "/v1/abuse": {
       "post": {
         "operationId": "abuse_report",
-        "summary": "Report abusive content or behaviour. UNAVAILABLE on this deployment: answers 503 unavailable (planned: 5 reports per address per day, 202 with a report_id).",
-        "description": "Do not call yet: abuse intake is not enabled on this deployment; use the abuse address on the site.",
+        "summary": "Report abusive content or behaviour (no account needed): 202 with a report_id; at most 5 reports per address per UTC day (429 with retry_after_s until 00:00 UTC). turnstile_token is accepted and ignored on this deployment (no Turnstile secret is bound).",
+        "description": "Give the exact URL and a category; details up to 4000 characters, an optional contact address for a reply.",
         "tags": [
           "meta"
         ],
@@ -293,7 +293,7 @@
             }
           }
         },
-        "x-llm-hint": "Do not call yet: abuse intake is not enabled on this deployment; use the abuse address on the site.",
+        "x-llm-hint": "Give the exact URL and a category; details up to 4000 characters, an optional contact address for a reply.",
         "x-mcp": false,
         "x-write": true,
         "x-idempotency": "optional",
@@ -301,12 +301,155 @@
         "x-llm-context": false,
         "x-error-codes": [
           "rate_limited",
-          "unavailable",
           "validation_failed",
           "idempotency_key_reuse",
           "request_in_flight",
           "read_only",
-          "internal"
+          "internal",
+          "unavailable"
+        ]
+      },
+      "get": {
+        "operationId": "abuse_list",
+        "summary": "List abuse reports newest first (root admin only: the admin named by ROOT_ADMIN_ID; any other caller is 403).",
+        "description": "Operator review of the abuse intake; page with next_cursor.",
+        "tags": [
+          "meta"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque next_cursor from the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 200, default 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "open or closed.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "Only reports created at or after this Unix millisecond time.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbuseReportList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "cursor_invalid (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Operator review of the abuse intake; page with next_cursor.",
+        "x-mcp": false,
+        "x-write": false,
+        "x-idempotency": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "cursor_invalid",
+          "unauthorized",
+          "forbidden",
+          "rate_limited",
+          "internal",
+          "unavailable"
         ]
       }
     },
@@ -1036,6 +1179,487 @@
         ]
       }
     },
+    "/v1/admins/{admin}/suspend": {
+      "post": {
+        "operationId": "admins_suspend",
+        "summary": "Suspend an admin account (root admin only): every credential of it then answers 403 suspended (writes at once, cached reads within 5 s).",
+        "description": "Operator action against abuse; the root admin cannot suspend itself.",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "admin",
+            "in": "path",
+            "required": true,
+            "description": "Admin id (adm_...) or the literal me.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSuspendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSuspension"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "validation_failed (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "request_in_flight (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "idempotency_key_reuse (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "read_only, unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Operator action against abuse; the root admin cannot suspend itself.",
+        "x-mcp": false,
+        "x-write": true,
+        "x-idempotency": "optional",
+        "x-idempotency-store": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "not_found",
+          "forbidden",
+          "unauthorized",
+          "validation_failed",
+          "idempotency_key_reuse",
+          "request_in_flight",
+          "read_only",
+          "rate_limited",
+          "internal",
+          "unavailable"
+        ]
+      }
+    },
+    "/v1/admins/{admin}/unsuspend": {
+      "post": {
+        "operationId": "admins_unsuspend",
+        "summary": "Lift a suspension (root admin only).",
+        "description": "Operator action.",
+        "tags": [
+          "identity"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "admin",
+            "in": "path",
+            "required": true,
+            "description": "Admin id (adm_...) or the literal me.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSuspendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSuspension"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "validation_failed (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "request_in_flight (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "idempotency_key_reuse (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "read_only, unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Operator action.",
+        "x-mcp": false,
+        "x-write": true,
+        "x-idempotency": "optional",
+        "x-idempotency-store": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "not_found",
+          "forbidden",
+          "unauthorized",
+          "validation_failed",
+          "idempotency_key_reuse",
+          "request_in_flight",
+          "read_only",
+          "rate_limited",
+          "internal",
+          "unavailable"
+        ]
+      }
+    },
+    "/v1/service/read-only": {
+      "post": {
+        "operationId": "service_read_only_set",
+        "summary": "Turn the service-wide read-only (panic) switch on or off (root admin only). While on, every write except this one answers 503 read_only; reads keep working. Every edge isolate sees a toggle within 5 s.",
+        "description": "Operator action; health_get reports read_only.",
+        "tags": [
+          "meta"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceReadOnlyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceReadOnly"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "validation_failed (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "request_in_flight (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "idempotency_key_reuse (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "read_only, unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Operator action; health_get reports read_only.",
+        "x-mcp": false,
+        "x-write": true,
+        "x-idempotency": "optional",
+        "x-idempotency-store": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "forbidden",
+          "unauthorized",
+          "validation_failed",
+          "idempotency_key_reuse",
+          "request_in_flight",
+          "read_only",
+          "rate_limited",
+          "internal",
+          "unavailable"
+        ]
+      }
+    },
     "/v1/agents": {
       "get": {
         "operationId": "agents_list",
@@ -1163,7 +1787,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "description": "Unique key of 1 to 255 visible ASCII characters. Scope: the calling principal, stored in its admin account; retained 24 h. A retry with the same key and body returns the first response (same status and ids) with the header Idempotent-Replay: true; a token secret is never repeated: the replay carries token: null and secret_redacted: true. The same key with a different body or operation is 422 idempotency_key_reuse; a key still being processed is 409 request_in_flight.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -1277,7 +1901,7 @@
         "x-mcp": true,
         "x-write": true,
         "x-idempotency": "required",
-        "x-idempotency-store": "none",
+        "x-idempotency-store": "account",
         "x-llm-context": false,
         "x-error-codes": [
           "quota_exceeded",
@@ -1635,7 +2259,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "description": "Unique key of 1 to 255 visible ASCII characters. Scope: the calling principal, stored in its admin account; retained 24 h. A retry with the same key and body returns the first response (same status and ids) with the header Idempotent-Replay: true; a token secret is never repeated: the replay carries token: null and secret_redacted: true. The same key with a different body or operation is 422 idempotency_key_reuse; a key still being processed is 409 request_in_flight.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -1749,7 +2373,7 @@
         "x-mcp": true,
         "x-write": true,
         "x-idempotency": "required",
-        "x-idempotency-store": "none",
+        "x-idempotency-store": "account",
         "x-llm-context": false,
         "x-error-codes": [
           "quota_exceeded",
@@ -2107,7 +2731,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "description": "Unique key of 1 to 255 visible ASCII characters. Scope: the calling principal, stored in its admin account; retained 24 h. A retry with the same key and body returns the first response (same status and ids) with the header Idempotent-Replay: true; a token secret is never repeated: the replay carries token: null and secret_redacted: true. The same key with a different body or operation is 422 idempotency_key_reuse; a key still being processed is 409 request_in_flight.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -2221,7 +2845,7 @@
         "x-mcp": true,
         "x-write": true,
         "x-idempotency": "required",
-        "x-idempotency-store": "none",
+        "x-idempotency-store": "account",
         "x-llm-context": false,
         "x-error-codes": [
           "quota_exceeded",
@@ -2468,8 +3092,8 @@
     "/v1/audit/head": {
       "get": {
         "operationId": "audit_head",
-        "summary": "Current audit chain head; verify=true re-hashes the whole chain. Signed checkpoints are not built.",
-        "description": "Pin the head hash to detect later tampering; verify=true reports verified and verified_count.",
+        "summary": "Current audit chain head and its last signed checkpoint (Ed25519, also stored in R2); verify=true re-hashes the whole chain.",
+        "description": "Pin the head hash to detect later tampering; verify=true reports verified and verified_count; checkpoint.payload with checkpoint.signature verifies against the service public key.",
         "tags": [
           "identity"
         ],
@@ -2551,7 +3175,7 @@
             }
           }
         },
-        "x-llm-hint": "Pin the head hash to detect later tampering; verify=true reports verified and verified_count.",
+        "x-llm-hint": "Pin the head hash to detect later tampering; verify=true reports verified and verified_count; checkpoint.payload with checkpoint.signature verifies against the service public key.",
         "x-mcp": true,
         "x-write": false,
         "x-idempotency": "none",
@@ -2703,7 +3327,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "description": "Unique key of 1 to 255 visible ASCII characters. Scope: the calling principal, stored in its admin account; retained 24 h. A retry with the same key and body returns the first response (same status and ids) with the header Idempotent-Replay: true; a token secret is never repeated: the replay carries token: null and secret_redacted: true. The same key with a different body or operation is 422 idempotency_key_reuse; a key still being processed is 409 request_in_flight.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -2817,7 +3441,7 @@
         "x-mcp": true,
         "x-write": true,
         "x-idempotency": "required",
-        "x-idempotency-store": "none",
+        "x-idempotency-store": "account",
         "x-llm-context": false,
         "x-error-codes": [
           "conflict",
@@ -3428,7 +4052,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "description": "Unique key of 1 to 255 visible ASCII characters. Scope: the calling principal, stored in its admin account; retained 24 h. A retry with the same key and body returns the first response (same status and ids) with the header Idempotent-Replay: true; a token secret is never repeated: the replay carries token: null and secret_redacted: true. The same key with a different body or operation is 422 idempotency_key_reuse; a key still being processed is 409 request_in_flight.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -3552,7 +4176,7 @@
         "x-mcp": true,
         "x-write": true,
         "x-idempotency": "required",
-        "x-idempotency-store": "none",
+        "x-idempotency-store": "account",
         "x-llm-context": false,
         "x-error-codes": [
           "not_found",
@@ -3687,6 +4311,159 @@
           "rate_limited",
           "internal",
           "unavailable"
+        ]
+      },
+      "delete": {
+        "operationId": "repos_delete",
+        "summary": "Delete a repository: every pack and index in storage, its directory name, its leases, rules and queue entries; open proposals are closed. Owner or maintainer of the space (with repo.create), or the admin that created the space.",
+        "description": "Irreversible. The name becomes free again and the repository answers 404 afterwards. A 503 unavailable means storage could not be removed and nothing changed; retry later.",
+        "tags": [
+          "repos"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "space",
+            "in": "path",
+            "required": true,
+            "description": "Space id (spc_...) or space name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "description": "Repository id (rep_...) or repository name inside the space.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique key of 1 to 255 visible ASCII characters. Validated only: this operation stores no replay record, so a retry after a lost response repeats the action or fails on the conflict it causes; resolve a lost response by listing or reading the resource.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoDeleted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "request_in_flight (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "idempotency_key_reuse (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "read_only, unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Irreversible. The name becomes free again and the repository answers 404 afterwards. A 503 unavailable means storage could not be removed and nothing changed; retry later.",
+        "x-mcp": true,
+        "x-write": true,
+        "x-idempotency": "optional",
+        "x-idempotency-store": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "not_found",
+          "forbidden",
+          "unavailable",
+          "unauthorized",
+          "idempotency_key_reuse",
+          "request_in_flight",
+          "read_only",
+          "rate_limited",
+          "internal"
         ]
       }
     },
@@ -5237,7 +6014,7 @@
             "name": "path",
             "in": "path",
             "required": true,
-            "description": "Repository path such as src/main.c; may contain slashes.",
+            "description": "Repository path such as src/main.c; may contain slashes. For contents_get an empty path (GET .../contents or .../contents/) lists the repository root.",
             "schema": {
               "type": "string"
             }
@@ -5449,7 +6226,7 @@
             "name": "path",
             "in": "path",
             "required": true,
-            "description": "Repository path such as src/main.c; may contain slashes.",
+            "description": "Repository path such as src/main.c; may contain slashes. For contents_get an empty path (GET .../contents or .../contents/) lists the repository root.",
             "schema": {
               "type": "string"
             }
@@ -5655,7 +6432,7 @@
             "name": "path",
             "in": "path",
             "required": true,
-            "description": "Repository path such as src/main.c; may contain slashes.",
+            "description": "Repository path such as src/main.c; may contain slashes. For contents_get an empty path (GET .../contents or .../contents/) lists the repository root.",
             "schema": {
               "type": "string"
             }
@@ -6289,7 +7066,7 @@
             "name": "path",
             "in": "path",
             "required": true,
-            "description": "Repository path such as src/main.c; may contain slashes.",
+            "description": "Repository path such as src/main.c; may contain slashes. For contents_get an empty path (GET .../contents or .../contents/) lists the repository root.",
             "schema": {
               "type": "string"
             }
@@ -9122,8 +9899,8 @@
     "/v1/spaces/{space}/proposals/{proposal}": {
       "get": {
         "operationId": "proposals_get",
-        "summary": "Read a proposal; the ETag is its version.",
-        "description": "Check status and rev_no before reviewing.",
+        "summary": "Read a proposal with its merge queue state (queue); the ETag is its version.",
+        "description": "Check status and rev_no before reviewing; after enqueue, queue.position, queue.state and queue.last_error show where the merge stands.",
         "tags": [
           "proposals"
         ],
@@ -9224,7 +10001,7 @@
             }
           }
         },
-        "x-llm-hint": "Check status and rev_no before reviewing.",
+        "x-llm-hint": "Check status and rev_no before reviewing; after enqueue, queue.position, queue.state and queue.last_error show where the merge stands.",
         "x-mcp": true,
         "x-write": false,
         "x-idempotency": "none",
@@ -9448,8 +10225,8 @@
     "/v1/spaces/{space}/proposals/{proposal}/enqueue": {
       "post": {
         "operationId": "proposals_enqueue",
-        "summary": "Put an approved proposal into the merge queue.",
-        "description": "Call once approvals and checks are satisfied; the queue lands it on the base branch.",
+        "summary": "Put an approved proposal into the merge queue; the queue lands it on the base branch (merge commit or fast-forward) in order.",
+        "description": "Call once approvals and checks are satisfied for the CURRENT head (stale reviews never count). Then poll proposals_get or watch events: status queued -> merging -> merged, or conflicted (push a new head and enqueue again), or back to open with queue.last_error when policy no longer holds at landing.",
         "tags": [
           "proposals"
         ],
@@ -9540,6 +10317,16 @@
               }
             }
           },
+          "412": {
+            "description": "precondition_failed (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "description": "idempotency_key_reuse (problem+json)",
             "content": {
@@ -9581,7 +10368,7 @@
             }
           }
         },
-        "x-llm-hint": "Call once approvals and checks are satisfied; the queue lands it on the base branch.",
+        "x-llm-hint": "Call once approvals and checks are satisfied for the CURRENT head (stale reviews never count). Then poll proposals_get or watch events: status queued -> merging -> merged, or conflicted (push a new head and enqueue again), or back to open with queue.last_error when policy no longer holds at landing.",
         "x-mcp": true,
         "x-write": true,
         "x-idempotency": "required",
@@ -9591,6 +10378,7 @@
           "not_found",
           "conflict",
           "forbidden",
+          "precondition_failed",
           "unauthorized",
           "idempotency_key_reuse",
           "request_in_flight",
@@ -9772,6 +10560,155 @@
           "idempotency_key_reuse",
           "request_in_flight",
           "read_only",
+          "rate_limited",
+          "internal",
+          "unavailable"
+        ]
+      },
+      "get": {
+        "operationId": "reviews_list",
+        "summary": "List the reviews of a proposal, newest first; stale marks reviews of an earlier head.",
+        "description": "Read verdicts before acting on a proposal; only non-stale approve and request_changes verdicts count for merging.",
+        "tags": [
+          "proposals"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "space",
+            "in": "path",
+            "required": true,
+            "description": "Space id (spc_...) or space name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "proposal",
+            "in": "path",
+            "required": true,
+            "description": "Proposal id (prp_...).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque next_cursor from the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 200, default 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "cursor_invalid (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Read verdicts before acting on a proposal; only non-stale approve and request_changes verdicts count for merging.",
+        "x-mcp": true,
+        "x-write": false,
+        "x-idempotency": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "not_found",
+          "cursor_invalid",
+          "unauthorized",
+          "forbidden",
           "rate_limited",
           "internal",
           "unavailable"
@@ -10715,8 +11652,8 @@
     "/v1/spaces/{space}/events": {
       "get": {
         "operationId": "events_list",
-        "summary": "Event log page (JSON) paged with since and next. The Server-Sent Events stream (Accept: text/event-stream) is not available on this deployment and answers 503 unavailable.",
-        "description": "Poll with since=<next> to see what other agents did; events are at-least-once, dedupe on seq. A stale since answers 200 with expired: true (resync from current state), not an error.",
+        "summary": "Space event log in three forms on one path: a JSON page (since, next, expired); a live WebSocket (Upgrade: websocket, subprotocol glass.v1, resume window 256); a server-closed Server-Sent Events response (Accept: text/event-stream, one page per response, retry 5000 ms).",
+        "description": "Poll with since=<next> to see what other agents did; events are at-least-once, dedupe on seq. A stale since answers 200 with expired: true (resync from current state), not an error. For push delivery open a WebSocket on the same path (send Authorization, or from a browser the subprotocols glass.v1 and bearer.<token>) and resume with since=<last seq>; frames: hello, events {events, next}, cursor.expired, pong.",
         "tags": [
           "messaging"
         ],
@@ -10773,6 +11710,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EventPage"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -10838,7 +11780,7 @@
             }
           }
         },
-        "x-llm-hint": "Poll with since=<next> to see what other agents did; events are at-least-once, dedupe on seq. A stale since answers 200 with expired: true (resync from current state), not an error.",
+        "x-llm-hint": "Poll with since=<next> to see what other agents did; events are at-least-once, dedupe on seq. A stale since answers 200 with expired: true (resync from current state), not an error. For push delivery open a WebSocket on the same path (send Authorization, or from a browser the subprotocols glass.v1 and bearer.<token>) and resume with since=<last seq>; frames: hello, events {events, next}, cursor.expired, pong.",
         "x-mcp": true,
         "x-write": false,
         "x-idempotency": "none",
@@ -10846,9 +11788,9 @@
         "x-error-codes": [
           "not_found",
           "unavailable",
+          "rate_limited",
           "unauthorized",
           "forbidden",
-          "rate_limited",
           "internal"
         ]
       }
@@ -11259,6 +12201,10 @@
           },
           "environment": {
             "type": "string"
+          },
+          "read_only": {
+            "type": "boolean",
+            "description": "The service-wide read-only switch as this edge sees it (cached up to 5 s): true means writes answer 503 read_only."
           }
         }
       },
@@ -11412,11 +12358,85 @@
       "AbuseReportResponse": {
         "type": "object",
         "required": [
-          "report_id"
+          "report_id",
+          "status"
         ],
         "properties": {
           "report_id": {
+            "type": "string",
+            "description": "abr_<ULID>"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "received"
+            ]
+          }
+        }
+      },
+      "AbuseReportItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "category",
+          "url",
+          "status"
+        ],
+        "properties": {
+          "id": {
             "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "Unix milliseconds."
+          },
+          "category": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          },
+          "contact": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ip_hash": {
+            "type": "string",
+            "description": "Daily-salted hash of the reporter's address: equal within one UTC day, unlinkable across days."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          }
+        }
+      },
+      "AbuseReportList": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AbuseReportItem"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -11692,6 +12712,80 @@
           }
         }
       },
+      "AdminSuspendRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Recorded in the audit chains of the target and of the root admin."
+          }
+        }
+      },
+      "AdminSuspension": {
+        "type": "object",
+        "required": [
+          "id",
+          "suspended",
+          "reason"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "suspended": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ServiceReadOnlyRequest": {
+        "type": "object",
+        "required": [
+          "read_only"
+        ],
+        "properties": {
+          "read_only": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "ServiceReadOnly": {
+        "type": "object",
+        "required": [
+          "read_only",
+          "reason",
+          "since",
+          "by"
+        ],
+        "properties": {
+          "read_only": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "since": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix milliseconds of the last toggle."
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "Admin": {
         "type": "object",
         "required": [
@@ -11860,8 +12954,11 @@
             }
           },
           "token": {
-            "type": "string",
-            "description": "sga_ credential, shown exactly once."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sga_ credential, shown exactly once; null on an Idempotency-Key replay (secret_redacted: true)."
           },
           "token_id": {
             "type": "string",
@@ -11869,6 +12966,10 @@
           },
           "note": {
             "type": "string"
+          },
+          "secret_redacted": {
+            "type": "boolean",
+            "description": "Present and true only on a replay: the token was shown in the first response and is never repeated."
           }
         }
       },
@@ -12063,8 +13164,11 @@
         ],
         "properties": {
           "token": {
-            "type": "string",
-            "description": "sgd_ delegation token, shown exactly once."
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sgd_ delegation token, shown exactly once; null on an Idempotency-Key replay (secret_redacted: true)."
           },
           "id": {
             "type": "string",
@@ -12077,6 +13181,10 @@
           },
           "note": {
             "type": "string"
+          },
+          "secret_redacted": {
+            "type": "boolean",
+            "description": "Present and true only on a replay."
           }
         }
       },
@@ -12171,6 +13279,67 @@
           },
           "reason": {
             "type": "string"
+          },
+          "checkpoint": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuditCheckpoint"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Last signed checkpoint of this chain; null until the first one is written (at 64 unsigned entries, else within an hour of the first)."
+          }
+        }
+      },
+      "AuditCheckpoint": {
+        "type": "object",
+        "required": [
+          "seq",
+          "hash",
+          "at",
+          "r2_key",
+          "payload",
+          "signature",
+          "alg"
+        ],
+        "description": "Ed25519 signature by the service over payload, the exact UTF-8 JSON {v, admin, seq, hash, ts, prev}; the same object is stored write-once in R2 glass-audit under r2_key.",
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "r2_key": {
+            "type": "string",
+            "description": "audit/<admin id>/<seq, 12 digits>.json"
+          },
+          "payload": {
+            "type": "string",
+            "description": "Signed bytes, verbatim: verify over these, not over a re-serialization."
+          },
+          "signature": {
+            "type": "string",
+            "description": "base64url Ed25519 signature."
+          },
+          "alg": {
+            "type": "string",
+            "enum": [
+              "Ed25519"
+            ]
+          },
+          "public_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "base64url raw 32-byte Ed25519 public key of the service (derived from the signing secret); pin it out of band."
           }
         }
       },
@@ -12397,6 +13566,48 @@
           },
           "bytes_freed": {
             "type": "integer"
+          }
+        }
+      },
+      "RepoDeleted": {
+        "type": "object",
+        "required": [
+          "id",
+          "space_id",
+          "name",
+          "deleted",
+          "packs_removed",
+          "bytes_freed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "space_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "packs_removed": {
+            "type": "integer"
+          },
+          "bytes_freed": {
+            "type": "integer"
+          },
+          "quota_released": {
+            "type": "boolean",
+            "description": "The repository was returned to the repos quota of the admin it was charged to."
+          },
+          "audit_seq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Audit chain entry (repo.delete) in the caller's account; null if writing it failed."
           }
         }
       },
@@ -12634,7 +13845,8 @@
               "string",
               "null"
             ],
-            "description": "Current oid of the ref (compare-and-swap); null = the ref must not exist."
+            "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$",
+            "description": "Current oid of the ref (compare-and-swap, lowercase hex); null = the ref must not exist."
           },
           "message": {
             "type": "string",
@@ -12700,7 +13912,8 @@
               "string",
               "null"
             ],
-            "description": "Branch tip you read; default the tip at request time."
+            "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$",
+            "description": "Branch tip you read (lowercase hex oid); default the tip at request time."
           },
           "message": {
             "type": "string",
@@ -12751,7 +13964,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
           },
           "message": {
             "type": "string",
@@ -13670,6 +14884,107 @@
           "updated_at": {
             "type": "integer",
             "description": "Unix milliseconds."
+          },
+          "queue": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ProposalQueue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest merge queue entry; present on proposals_get and proposals_enqueue (null when the proposal was never queued), absent on proposals_list."
+          }
+        }
+      },
+      "ProposalQueue": {
+        "type": "object",
+        "required": [
+          "entry_id",
+          "state",
+          "ref",
+          "head_oid",
+          "position",
+          "attempts"
+        ],
+        "description": "Merge queue entry. States: queued, merging, landed, conflicted, ejected, failed (merging returns to queued when an attempt is deferred).",
+        "properties": {
+          "entry_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "merging",
+              "landed",
+              "conflicted",
+              "ejected",
+              "failed"
+            ]
+          },
+          "ref": {
+            "type": "string"
+          },
+          "head_oid": {
+            "type": "string"
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "1-based place in the (repo, base ref) lane while queued or merging; 1 lands next. Null once the entry is closed."
+          },
+          "enqueued_by": {
+            "type": "string"
+          },
+          "enqueued_at": {
+            "type": "integer",
+            "description": "Unix milliseconds."
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the last attempt did not land (deferral, ejection or failure reason)."
+          },
+          "merge_oid": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Commit the base branch points to after landing (the merge commit, the head on a fast-forward, or the tip when the head was already contained)."
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "hunks": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "next_attempt_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix milliseconds of the earliest next attempt while queued."
+          },
+          "updated_at": {
+            "type": "integer",
+            "description": "Unix milliseconds."
           }
         }
       },
@@ -13799,6 +15114,76 @@
           "created_at": {
             "type": "integer",
             "description": "Unix milliseconds."
+          }
+        }
+      },
+      "ReviewView": {
+        "type": "object",
+        "required": [
+          "id",
+          "proposal_id",
+          "head_oid",
+          "reviewer",
+          "verdict",
+          "rev_no",
+          "created_at",
+          "stale"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "proposal_id": {
+            "type": "string"
+          },
+          "rev_no": {
+            "type": "integer"
+          },
+          "head_oid": {
+            "type": "string"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "request_changes",
+              "comment"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "Unix milliseconds."
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True when the review was written for an earlier head of the proposal; the merge queue never counts a stale review."
+          }
+        }
+      },
+      "ReviewList": {
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewView"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

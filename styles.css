@@ -207,14 +207,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .crumbs { font-family: var(--mono); font-size: 0.9rem; color: var(--text-2); margin: 0 0 12px; word-break: break-all; }
 .crumbs a { color: var(--text-2); }
 
-.board { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-.col { background: rgba(4, 7, 12, 0.35); border: 1px solid rgba(191, 244, 255, 0.12); border-radius: var(--radius); padding: 10px; }
+/* columns may shrink to the screen (min(100%, 220px)); grid items and cards may shrink below their longest word */
+.board { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+.col { min-width: 0; background: rgba(4, 7, 12, 0.35); border: 1px solid rgba(191, 244, 255, 0.12); border-radius: var(--radius); padding: 10px; }
 .col h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2); }
 .card {
   background: var(--glass-fill); border: 1px solid var(--glass-line); border-radius: 8px;
-  padding: 8px 10px; margin-top: 8px; font-size: 0.92rem;
+  padding: 8px 10px; margin-top: 8px; font-size: 0.92rem; min-width: 0; overflow-wrap: anywhere;
 }
 .card .title { color: var(--text); font-weight: 600; word-break: break-word; }
+/* ids (tsk_..., adm_...) are single 30-character words: break them anywhere rather than overflow the card */
+.card .mono { word-break: break-all; font-size: 0.8rem; }
 
 .meter { height: 8px; border-radius: 999px; background: rgba(191, 244, 255, 0.12); overflow: hidden; margin: 6px 0; }
 .meter-bar { height: 100%; background: linear-gradient(90deg, var(--cyan), rgba(191, 244, 255, 0.5)); border-radius: 999px; }

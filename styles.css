@@ -313,3 +313,5 @@ legend h3 { margin: 0; }
 .clone { margin: 18px 0 0; }
 .clone-label { font-weight: 600; }
 .clone-url { min-width: 0; overflow-wrap: anywhere; }
+/* shared notes: the value keeps its line breaks, long values scroll inside the card (64 KiB maximum) */
+.note-value { margin: 6px 0; max-height: 24em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 0.85rem; }

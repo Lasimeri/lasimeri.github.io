@@ -120,6 +120,7 @@ footer{color:var(--dim);padding-bottom:40px}
 <tr><td><span class="m m-POST">POST</span></td><td><code>/v1/spaces/{space}/repos</code></td><td><a href="#op-repos_create">repos_create</a></td><td>principal</td><td>Create a repository (empty, or a fork).</td></tr>
 <tr><td><span class="m m-GET">GET</span></td><td><code>/v1/spaces/{space}/repos/{repo}</code></td><td><a href="#op-repos_get">repos_get</a></td><td>principal</td><td>Read repository metadata.</td></tr>
 <tr><td><span class="m m-POST">POST</span></td><td><code>/v1/spaces/{space}/repos/{repo}/purge</code></td><td><a href="#op-repos_purge">repos_purge</a></td><td>principal</td><td>Garbage-collect unreachable objects immediately.</td></tr>
+<tr><td><span class="m m-POST">POST</span></td><td><code>/v1/spaces/{space}/repos/{repo}/export</code></td><td><a href="#op-repos_export">repos_export</a></td><td>principal</td><td>Export the repository: a git bundle of every ref and a JSON state dump (refs, reflog, fsck findings), as signed download links valid for 1 hour.</td></tr>
 <tr><td><span class="m m-DELETE">DELETE</span></td><td><code>/v1/spaces/{space}/repos/{repo}</code></td><td><a href="#op-repos_delete">repos_delete</a></td><td>principal</td><td>Delete a repository: every pack and index in storage, its directory name, its leases, rules and queue entries; open proposals are closed. Owner or maintainer of the space (with repo.create), or the admin that created the space.</td></tr>
 <tr><td><span class="m m-GET">GET</span></td><td><code>/v1/spaces/{space}/repos/{repo}/refs</code></td><td><a href="#op-refs_list">refs_list</a></td><td>principal</td><td>List refs, optionally by prefix.</td></tr>
 <tr><td><span class="m m-GET">GET</span></td><td><code>/v1/spaces/{space}/repos/{repo}/refs/{name}</code></td><td><a href="#op-refs_get">refs_get</a></td><td>principal</td><td>Read one ref; the ETag is its oid.</td></tr>
@@ -594,6 +595,18 @@ footer{color:var(--dim);padding-bottom:40px}
 <p>Response body</p><pre>PurgeResult</pre>
 <p>Errors: <code>not_found</code>, <code>unauthorized</code>, <code>forbidden</code>, <code>idempotency_key_reuse</code>, <code>request_in_flight</code>, <code>read_only</code>, <code>rate_limited</code>, <code>internal</code>, <code>unavailable</code></p>
 <pre class="curl">curl -sS -X POST -H 'Authorization: Bearer $SG_TOKEN' 'https://api.seaof.glass/v1/spaces/&lt;space&gt;/repos/&lt;repo&gt;/purge'</pre>
+</details>
+<details class="panel op" id="op-repos_export"><summary><span class="m m-POST">POST</span> <code>/v1/spaces/{space}/repos/{repo}/export</code> <strong>repos_export</strong></summary>
+<p>Export the repository: a git bundle of every ref and a JSON state dump (refs, reflog, fsck findings), as signed download links valid for 1 hour.</p>
+<p class="hint">When to call: Backup or hand-off: download bundle.url, then git bundle verify &lt;file&gt; and git clone &lt;file&gt;. A repeat call with unchanged refs within an hour answers the same export (reused: true) with fresh links. Readers may export: it reveals what a clone does. Refused (503) while the service is read-only.</p>
+<p class="meta">auth principal, write yes, idempotency none, MCP tool yes, success status 200</p>
+<table><thead><tr><th>Parameter</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>space</code></td><td>path</td><td>yes</td><td><code>string</code></td><td>Space id (spc_...) or space name.</td></tr>
+<tr><td><code>repo</code></td><td>path</td><td>yes</td><td><code>string</code></td><td>Repository id (rep_...) or repository name inside the space.</td></tr>
+</tbody></table>
+<p>Response body</p><pre>RepoExport</pre>
+<p>Errors: <code>not_found</code>, <code>unavailable</code>, <code>unauthorized</code>, <code>forbidden</code>, <code>read_only</code>, <code>rate_limited</code>, <code>internal</code></p>
+<pre class="curl">curl -sS -X POST -H 'Authorization: Bearer $SG_TOKEN' 'https://api.seaof.glass/v1/spaces/&lt;space&gt;/repos/&lt;repo&gt;/export'</pre>
 </details>
 <details class="panel op" id="op-repos_delete"><summary><span class="m m-DELETE">DELETE</span> <code>/v1/spaces/{space}/repos/{repo}</code> <strong>repos_delete</strong></summary>
 <p>Delete a repository: every pack and index in storage, its directory name, its leases, rules and queue entries; open proposals are closed. Owner or maintainer of the space (with repo.create), or the admin that created the space.</p>

@@ -133,6 +133,8 @@ Human docs: https://seaof.glass/
   When: Get default branch, size and clone URL.
 - repos_purge: POST /v1/spaces/{space}/repos/{repo}/purge. Garbage-collect unreachable objects immediately.
   When: Use after force-pushing a secret away: removes it from storage now (owner or maintainer only). Packs that existed when the repository was last forked are kept (its forks read them): delete the forks first to purge those.
+- repos_export: POST /v1/spaces/{space}/repos/{repo}/export. Export the repository: a git bundle of every ref and a JSON state dump (refs, reflog, fsck findings), as signed download links valid for 1 hour.
+  When: Backup or hand-off: download bundle.url, then git bundle verify <file> and git clone <file>. A repeat call with unchanged refs within an hour answers the same export (reused: true) with fresh links. Readers may export: it reveals what a clone does. Refused (503) while the service is read-only.
 - repos_delete: DELETE /v1/spaces/{space}/repos/{repo}. Delete a repository: every pack and index in storage, its directory name, its leases, rules and queue entries; open proposals are closed. Owner or maintainer of the space (with repo.create), or the admin that created the space.
   When: Irreversible. The name becomes free again and the repository answers 404 afterwards. A repository that has forks answers 409 conflict (problem fields forks and next name them; forks read its packs): delete the forks first. A 503 unavailable means storage could not be removed and nothing changed; retry later.
 - archive_get: GET /v1/spaces/{space}/repos/{repo}/archive. Tar stream of a commit's tree.

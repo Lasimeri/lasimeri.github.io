@@ -4768,6 +4768,127 @@
         ]
       }
     },
+    "/v1/spaces/{space}/repos/{repo}/export": {
+      "post": {
+        "operationId": "repos_export",
+        "summary": "Export the repository: a git bundle of every ref and a JSON state dump (refs, reflog, fsck findings), as signed download links valid for 1 hour.",
+        "description": "Backup or hand-off: download bundle.url, then git bundle verify <file> and git clone <file>. A repeat call with unchanged refs within an hour answers the same export (reused: true) with fresh links. Readers may export: it reveals what a clone does. Refused (503) while the service is read-only.",
+        "tags": [
+          "repos"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "space",
+            "in": "path",
+            "required": true,
+            "description": "Space id (spc_...) or space name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "description": "Repository id (rep_...) or repository name inside the space.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoExport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "read_only, unavailable (problem+json)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "x-llm-hint": "Backup or hand-off: download bundle.url, then git bundle verify <file> and git clone <file>. A repeat call with unchanged refs within an hour answers the same export (reused: true) with fresh links. Readers may export: it reveals what a clone does. Refused (503) while the service is read-only.",
+        "x-mcp": true,
+        "x-write": true,
+        "x-idempotency": "none",
+        "x-llm-context": false,
+        "x-error-codes": [
+          "not_found",
+          "unavailable",
+          "unauthorized",
+          "forbidden",
+          "read_only",
+          "rate_limited",
+          "internal"
+        ]
+      }
+    },
     "/v1/spaces/{space}/repos/{repo}/refs": {
       "get": {
         "operationId": "refs_list",
@@ -14063,6 +14184,80 @@
           },
           "bytes_freed": {
             "type": "integer"
+          }
+        }
+      },
+      "ExportFile": {
+        "type": "object",
+        "required": [
+          "url",
+          "bytes",
+          "sha256"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Signed download link on the raw host (GET, Range allowed); valid until expires_at."
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "sha256": {
+            "type": "string",
+            "description": "SHA-256 of the file, lowercase hex."
+          }
+        }
+      },
+      "RepoExport": {
+        "type": "object",
+        "required": [
+          "export_id",
+          "created_at",
+          "reused",
+          "refs",
+          "objects",
+          "expires_at",
+          "bundle",
+          "state"
+        ],
+        "properties": {
+          "export_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "Unix ms when the export was written."
+          },
+          "reused": {
+            "type": "boolean",
+            "description": "true: an export written within the last hour with the same refs was answered again (no new files)."
+          },
+          "refs": {
+            "type": "integer",
+            "description": "Ref lines in the bundle, HEAD included when it resolves."
+          },
+          "objects": {
+            "type": "integer",
+            "description": "Objects in the bundle's pack."
+          },
+          "expires_at": {
+            "type": "integer",
+            "description": "Unix ms when the links stop working; call again for fresh links (the files are kept 7 days)."
+          },
+          "bundle": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExportFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "git bundle v2 of every ref (one complete pack); null for a repository without refs. Check it with git bundle verify, restore it with git clone <file>."
+          },
+          "state": {
+            "$ref": "#/components/schemas/ExportFile",
+            "description": "JSON state dump (format glass-repo-state, version 1): repository fields, every ref with version and last actor, the whole reflog, pack totals, fsck findings."
           }
         }
       },
